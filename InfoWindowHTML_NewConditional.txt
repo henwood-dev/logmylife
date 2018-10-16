@@ -1,0 +1,94 @@
+{template .contents}
+<b>Participant ID:</b> {$data.value.PID}<br>
+<b>Survey/Type/Status:</b> {$data.value.SURVEYNUMBER} / {$data.value.PROMPT_REPROMPT} / {$data.value.STATUS}<br>
+<b>Time of Prompt:</b> {$data.value.PROMPTTIME}<br>
+<b>Time of Location:</b> {$data.value.LOCTIMESTAMP}<br>
+<b>Coordinates:</b> ({$data.value.LATITUDE}, {$data.value.LONGITUDE})<br>
+<b>Accuracy (meters):</b> {$data.value.ACCURACY}<br>
+<br>
+
+<b>Who were you with? (Past Two Hours)</b> {$data.value.CLOSEST5_2HR}<br>
+{if $data.value.SOCIAL_OTHER_2HR != ""}
+<b>Who else were you with?</b> {$data.value.SOCIAL_OTHER_2HR}<br>
+{/if}
+
+<b>Where were you?</b> {$data.value.WHERE_NOW}<br>
+<b>Where were you doing?</b> {$data.value.DOINGWHAT_NOW}<br>
+<b>How SAFE were you?</b> {$data.value.SAFE_NOW}<br>
+<b>How HAPPY were you?</b> {$data.value.HAPPY_NOW}<br>
+<b>How STRESSED were you?</b> {$data.value.STRESSED_NOW}<br>
+<b>How SAD were you?</b> {$data.value.SAD_NOW}<br>
+<b>How IRRITATED were you?</b> {$data.value.IRRITATED_NOW}<br>
+<b>How CALM were you?</b> {$data.value.CALM_NOW}<br>
+<b>How EXCITED were you?</b> {$data.value.EXCITED_NOW}<br>
+<b>How BORED were you?</b> {$data.value.BORED_NOW}<br>
+<b>How HUNGRY were you?</b> {$data.value.HUNGRY_NOW}<br>
+
+{if $data.value.IMPTEVENT_2HR != ""}
+<b>Did you have any important events?</b> {$data.value.IMPTEVENT_2HR}<br>
+{/if}
+
+{if $data.value.TOBACCO_2HR != ""}
+<b>Did you use tobacco in the past two hours?</b> {$data.value.TOBACCO_2HR}<br>
+{/if}
+
+<b>How many times did you drink in the past two hours?</b> {$data.value.DRINKS_2HR}<br>
+
+{if $data.value.DRINKS_WHERE_2HR != ""}
+<b>Where did you consume alcohol?</b> {$data.value.DRINKS_WHERE_2HR}<br>
+{/if}
+
+{if $data.value.DRINKS_WHOCLOSE5 != ""}
+<b>Who was with you when you had alcohol? (Past Two Hours)</b> {$data.value.DRINKS_WHOCLOSE5}<br>
+{/if}
+{if $data.value.DRINKS_WHOOTHER != ""}
+<b>Who else were you with when consuming alcohol?</b> {$data.value.DRINKS_WHOOTHER}<br>
+{/if}
+
+
+{if $data.value.DRINKS_OTHERSDRINKING != ""}
+<b>Were others with you also drinking?</b>{$data.value.DRINKS_OTHERSDRINKING}<br>
+{/if}
+
+<b>Did you use drugs in the past two hours?</b> {$data.value.ANYDRUGS_2HR}<br>
+{if $data.value.DRUGSTYPE != ""}
+<b>What drugs did you use in the past two hours?</b> {$data.value.DRUGSTYPE}<br>
+{/if}
+{if $data.value.DRUGSWHERE != ""}
+<b>Where did you use drugs in the past two hours?</b> {$data.value.DRUGSWHERE}<br>
+{/if}
+
+
+{if $data.value.DRUGSWHO_CLOSE5 != ""}
+<b>Who was with you when you used drugs? (Past Two Hours)</b> {$data.value.DRUGSWHO_CLOSE5}<br>
+{/if}
+{if $data.value.DRUGSWHO_OTHER != ""}
+<b>Who else were you with when using drugs?</b> {$data.value.DRUGSWHO_OTHER}<br>
+{/if}
+
+{if $data.value.DRUGS_OTHERSUSING != ""}
+<b>Were others with you also using drugs?</b>{$data.value.DRUGS_OTHERSUSING}<br>
+{/if}
+
+
+<b>Were you tempted to use drugs in the past two hours?</b> {$data.value.TEMPTED_2HR}<br>
+
+{if $data.value.TEMPTWHERE != ""}
+<b>Where did you feel tempted to use drugs?</b> {$data.value.TEMPTWHERE}<br>
+{/if}
+
+{if $data.value.TEMPTWHO_CLOSE5 != ""}
+<b>Who was with you when you felt tempted to use drugs? (Past Two Hours)</b> {$data.value.TEMPTWHO_CLOSE5}<br>
+{/if}
+{if $data.value.TEMPTWHO_OTHER != ""}
+<b>Who else were you with when you felt tempted to use drugs?</b> {$data.value.TEMPTWHO_OTHER}<br>
+{/if}
+
+
+{if $data.value.OTHERSUSINGWHENTEMPTED != ""}
+<b>Were others with you using drugs when you were tempted?</b>{$data.value.OTHERSUSINGWHENTEMPTED}<br>
+{/if}
+
+<b>Is positive affect above average?</b> {$data.value.PA_ABOVEAVG}<br>
+<b>Is negative affect above average?</b> {$data.value.NA_ABOVEAVG}
+{/template}

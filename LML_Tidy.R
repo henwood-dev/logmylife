@@ -21,23 +21,21 @@ source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 
 # Keys
 if(.Platform$OS.type == "windows"){
-  data_dirname <- "C:/Users/dzubur/Desktop/LML Raw Data/"
+  data_dirname <- "C:/Users/dzubur/Desktop/LML Raw Data"
 } else {
-  data_dirname <- "/Users/Eldin/Downloads/Data/"
+  data_dirname <- "/Users/Eldin/Downloads/Data"
 }
 if(.Platform$OS.type == "windows"){
   sni_stata_filename <- "C:/Users/dzubur/SharePoint/T/Team/Eldin/LML Data Management/Data/SNI.dta"
 } else {
   sni_stata_filename <- "/Users/Eldin/Downloads/Data/SNI.dta"
 }
-ema_dirname <- "EMA/"
-gps_dirname <- "GPS/"
-gps_manual_dirname <- "GPS Manual/"
-ema_manual_dirname <- "EMA Manual/"
+wockets_dirname <- "Wockets"
+manual_dirname <- "Manual"
 
 dummy3 <- function() {
-  gps <- read_gps(data_dirname,gps_dirname,gps_manual_dirname)
-  daily <- tidy_daily(data_dirname, ema_dirname, ema_manual_dirname, sni_stata_filename)
+  gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
+  daily <- tidy_daily(data_dirname, wockets_dirname, manual_dirname, sni_stata_filename)
   daily_sleep <- daily %>%
     filter(prompt_status == "Completed") %>%
     select(subject_id,prompt_date,wake_hour,wake_minute,sleep_hour,sleep_minute,no_sleep) %>%
@@ -201,7 +199,7 @@ dummy3 <- function() {
     select(-file_id)
     
   
-  enroll_sleep <- read_csv(paste0(data_dirname,"enrollment.csv")) %>%
+  enroll_sleep <- read_csv(paste(data_dirname,"enrollment.csv", sep = "/")) %>%
     select(subject_id = PID_master,sleeptime,waketime) %>%
     mutate(sleep = str_split_fixed(sleeptime,":",n=2)[,1],
            wake = str_split_fixed(waketime,":",n=2)[,1],
@@ -257,7 +255,7 @@ dummy3 <- function() {
     left_join(enroll,by=c("subject_id")) %>%
     filter(enroll_start <= prompt_date & enroll_end >= prompt_date)
   
-  write_dta(written_out,paste0(data_dirname,"sleep_daily.dta"))
+  write_dta(written_out,paste(data_dirname,"sleep_daily.dta", sep = "/"))
                                      
     
   
@@ -269,27 +267,27 @@ dummy3 <- function() {
 }
 
 dummy2 <- function(){
-daily <- tidy_daily(data_dirname, ema_dirname, ema_manual_dirname, sni_stata_filename)
-new_gps <- tidy_gps(data_dirname, ema_dirname, ema_manual_dirname, gps_dirname, gps_manual_dirname)
+daily <- tidy_daily(data_dirname, wockets_dirname, manual_dirname, sni_stata_filename)
+new_gps <- tidy_gps(data_dirname, wockets_dirname, manual_dirname)
 enroll <- enrollment_dates(data_dirname)
 new_ema <- new_gps %>%
   mutate(file_id = as.integer(system_file)) %>%
   left_join(enroll, by = "file_id")
 new_gps2 <- rename(new_ema,alcohol_social_other_stfriends = alcohol_social_other_streetfriends,
                    tempted_social_other_stfriends = tempted_social_other_streetfriends)
-write_dta(new_gps2,paste0(data_dirname,"gps.dta"))
+write_dta(new_gps2,paste(data_dirname,"gps.dta", sep = "/"))
 
 new_daily <- daily %>%
   mutate(file_id = as.integer(subject_id)) %>%
   left_join(enroll, by = "file_id")
-write_dta(new_daily,paste0(data_dirname,"daily.dta"))
+write_dta(new_daily,paste(data_dirname,"daily.dta", sep = "/"))
 
-all_gps <- read_gps(data_dirname,gps_dirname,gps_manual_dirname)
-write_dta(all_gps,paste0(data_dirname,"gps_all.dta"))
+all_gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
+write_dta(all_gps,paste(data_dirname,"gps_all.dta", sep = "/"))
 
 
   
-#ema <- tidy_ema(data_dirname, ema_dirname, ema_manual_dirname)
+#ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
 #ema2 <- rename(ema,alcohol_social_other_stfriends = alcohol_social_other_streetfriends,
 #               tempted_social_other_stfriends = tempted_social_other_streetfriends)
 #write_dta(ema2,paste0(data_dirname,"ema.dta"))
@@ -299,7 +297,7 @@ write_dta(all_gps,paste0(data_dirname,"gps_all.dta"))
 #write_dta(new_gps2,paste0(data_dirname,"gps.dta"))
 }
 
-daily_gps <- function(data_dirname, ema_dirname, ema_manual_dirname, gps_dirname, gps_manual_dirname){
+daily_gps <- function(data_dirname, wockets_dirname, manual_dirname){
   
 }
 
@@ -307,7 +305,7 @@ daily_gps <- function(data_dirname, ema_dirname, ema_manual_dirname, gps_dirname
 dummy_fnc <- function(data_dirname){
   
   
-  new_gps <- tidy_gps(data_dirname, ema_dirname, ema_manual_dirname, gps_dirname, gps_manual_dirname)
+  new_gps <- tidy_gps(data_dirname, wockets_dirname, manual_dirname)
 
   
   non_valid_gps_prompts <- new_gps %>%
@@ -336,13 +334,13 @@ dummy_fnc <- function(data_dirname){
     mutate(invalid_id = ifelse(invalid_day > 2,1,0)) %>%
     filter(invalid_id == 1)
   
-  write_csv(non_valid_gps_days,paste0(data_dirname,"nonvalid_days.csv"))
-  write_csv(non_valid_gps_ids,paste0(data_dirname,"nonvalid_ids.csv"))
-  write_csv(non_valid_gps_prompts,paste0(data_dirname,"nonvalid_prompts.csv"))
+  write_csv(non_valid_gps_days,paste(data_dirname,"nonvalid_days.csv", sep = "/"))
+  write_csv(non_valid_gps_ids,paste(data_dirname,"nonvalid_ids.csv", sep = "/"))
+  write_csv(non_valid_gps_prompts,paste(data_dirname,"nonvalid_prompts.csv", sep = "/"))
   
   library(lubridate)
   library(aspace)
-  testgps <- read_gps(data_dirname,gps_dirname,gps_manual_dirname)
+  testgps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
   
   test <- testgps[file_id == "2020"]
   test[,date := as.Date(fulltime)]
@@ -380,13 +378,13 @@ dummy_fnc <- function(data_dirname){
   
   
   library(grDevices) # load grDevices package
-  all_gps <- read_gps(data_dirname,gps_dirname,gps_manual_dirname)
+  all_gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
   all_gps[, date := as.Date(fulltime, tz = "America/Los Angeles", origin = "1970-01-01")]
   all_gps[, system_file := file_id]
   all_gps2 <- all_gps
   all_gps <- all_gps2[gps_time_valid == 1 & gps_accuracy_valid == 1]
   
-  all_ema <- tidy_ema(data_dirname,ema_dirname,ema_manual_dirname)
+  all_ema <- tidy_ema(data_dirname,wockets_dirname,manual_dirname)
   all_ema <- as.data.table(all_ema)
   all_ema[, PromptTime := str_replace(PromptTime,"PDT","")]
   all_ema[, ema_time := as.POSIXct(PromptTime, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01")]
@@ -482,9 +480,10 @@ dummy_fnc <- function(data_dirname){
 #transitions <- as.tibble(transitions)
 
 
-gps_fusion_adapter <- function(new_gps, data_dirname){
+gps_fusion_adapter <- function(new_gps, export_dirname){
   selected_gps <- new_gps %>%
-    mutate(WHERE_NOW = as.character(where), DOINGWHAT_NOW = as.character(what),
+    mutate(SAFE_NOW = as.character(safe),
+           WHERE_NOW = as.character(where), DOINGWHAT_NOW = as.character(what),
            HAPPY_NOW = as.character(happy), STRESSED_NOW = as.character(stressed),
            SAD_NOW = as.character(sad), IRRITATED_NOW = as.character(irritated),
            CALM_NOW = as.character(calm), EXCITED_NOW = as.character(excited),
@@ -500,46 +499,24 @@ gps_fusion_adapter <- function(new_gps, data_dirname){
     select(PID = system_file, SURVEYNUMBER = PromptID,PROMPT_REPROMPT = PromptType,
            STATUS = Status, DATE = PromptDate, PROMPTTIME = PromptTime, LOCTIMESTAMP,
            LATITUDE = latitude, LONGITUDE = longitude, ACCURACY = accuracy, CLOSEST5_2HR = Q1_social,
-           SOCIAL_OTHER_2HR_STAFF = social_other_staff, SOCIAL_OTHER_2HR_STAFF = social_other_staff,
-           SOCIAL_OTHER_2HR_HOMEFRIENDS = social_other_homefriends, SOCIAL_OTHER_2HR_STREETFRIENDS = social_other_streetfriends,
-           SOCIAL_OTHER_2HR_POLICE = social_other_police, SOCIAL_OTHER_2HR_COWORKER = social_other_coworker,
-           SOCIAL_OTHER_2HR_PARTNER = social_other_partner, SOCIAL_OTHER_2HR_STRANGER = social_other_stranger,
+           SOCIAL_OTHER_2HR = Q1_a_socialother, SAFE_NOW,
            WHERE_NOW, DOINGWHAT_NOW, HAPPY_NOW, STRESSED_NOW, SAD_NOW, IRRITATED_NOW,CALM_NOW,
            EXCITED_NOW, BORED_NOW, HUNGRY_NOW, HAPPY_NOWDS, STRESSED_NOWDS, SAD_NOWDS,
            IRRITATED_NOWDS, CALM_NOWDS, EXCITED_NOWDS, BORED_NOWDS, HUNGRY_NOWDS,
-           IMPTEVENT_2HR_LAW = stress_events_law, IMPTEVENT_2HR_NONE = stress_events_none,
-           IMPTEVENT_2HR_PHYSICALFIGHT = stress_events_physicalfight, IMPTEVENT_2HR_BADNEWS = stress_events_badnews,
-           IMPTEVENT_2HR_GOODNEWS = stress_events_goodnews, IMPTEVENT_2HR_VERBALFIGHT = stress_events_verbalfight,
-           TOBACCO_2HR_OTHER = tobacco_other, TOBACCO_2HR_CHEW = tobacco_chew,
-           TOBACCO_2HR_VAPE = tobacco_vape, TOBACCO_2HR_NONE = tobacco_none,
-           TOBACCO_2HR_PAPER = tobacco_paper, DRINKS_2HR, DRINKS_WHERE_2HR_TRANSIT = alcohol_where_transit,
-           DRINKS_WHERE_2HR_APARTMENT = alcohol_where_apartment, DRINKS_WHERE_2HR_OTHER = alcohol_where_other,
-           DRINKS_WHERE_2HR_OUTDOORS = alcohol_where_outdoors, DRINKS_WHERE_2HR_BUSINESS = alcohol_where_business,
-           DRINKS_WHERE_2HR_OTHERRESIDENCE = alcohol_where_otherresidence, DRINKS_WHERE_2HR_SCHOOLWORK = alcohol_where_schoolwork,
-           DRINKS_WHERE_2HR_SERVICE = alcohol_where_service, DRINKS_WHOCLOSE5 = Q12_c_alcohol_who,
-           DRINKS_WHOOTHER_FAMILY = alcohol_social_other_family, DRINKS_WHOOTHER_HOMEFRIENDS = alcohol_social_other_homefriends,
-           DRINKS_WHOOTHER_STREETFRIENDS = alcohol_social_other_streetfriends, DRINKS_WHOOTHER_COWORKER = alcohol_social_other_coworker,
-           DRINKS_WHOOTHER_PARTNER = alcohol_social_other_partner, DRINKS_WHOOTHER_STRANGER = alcohol_social_other_stranger,
-           DRINKS_OTHERSDRINKING, ANYDRUGS_2HR, DRUGSTYPE_ECSTACY = drugs_type_ecstasy,
-           DRUGSTYPE_ECSTACY = drugs_type_ecstasy, DRUGSTYPE_HALLUCINOGENS = drugs_type_hallucinogens,
-           DRUGSTYPE_MARIJUANA = drugs_type_marijuana, DRUGSTYPE_METH = drugs_type_meth,
-           DRUGSTYPE_SPICE = drugs_type_spice, DRUGSTYPE_RX = drugs_type_rx,
-           DRUGSTYPE_OTHER = drugs_type_other, DRUGSWHERE_TRANSIT = drugs_where_transit,
-           DRUGSWHERE_APARTMENT = drugs_where_apartment, DRUGSWHERE_OTHER = drugs_where_other,
-           DRUGSWHERE_OUTDOORS = drugs_where_outdoors, DRUGSWHERE_BUSINESS = drugs_where_business,
-           DRUGSWHERE_OTHERRESIDENCE = drugs_where_otherresidence, DRUGSWHERE_SCHOOLWORK = drugs_where_schoolwork,
-           DRUGSWHERE_SERVICE = drugs_where_service, DRUGSWHO_CLOSE5 = Q13_c_drugs_who,
-           DRUGSWHO_OTHER_FAMILY = drugs_social_other_family, DRUGSWHO_OTHER_HOMEFRIENDS = drugs_social_other_homefriends,
-           DRUGSWHO_OTHER_STREETFRIENDS = drugs_social_other_streetfriends, DRUGSWHO_OTHER_COWORKER = drugs_social_other_coworker,
-           DRUGSWHO_OTHER_PARTNER = drugs_social_other_partner, DRUGSWHO_OTHER_STRANGER = drugs_social_other_stranger,
-           DRUGS_OTHERSUSING,TEMPTED_2HR, TEMPTWHERE_TRANSIT = drugs_where_transit,
-           TEMPTWHERE_APARTMENT = tempted_where_apartment, TEMPTWHERE_OTHER = tempted_where_other,
-           TEMPTWHERE_OUTDOORS = tempted_where_outdoors, TEMPTWHERE_BUSINESS = tempted_where_business,
-           TEMPTWHERE_OTHERRESIDENCE = tempted_where_otherresidence, TEMPTWHERE_SCHOOLWORK = tempted_where_schoolwork,
-           TEMPTWHERE_SERVICE = tempted_where_service, TEMPTWHO_CLOSE5 = Q14_b_tempted_who,  
-           TEMPTWHO_OTHER_FAMILY = tempted_social_other_family, TEMPTWHO_OTHER_HOMEFRIENDS = tempted_social_other_homefriends,
-           TEMPTWHO_OTHER_STREETFRIENDS = tempted_social_other_streetfriends, TEMPTWHO_OTHER_COWORKER = tempted_social_other_coworker,
-           TEMPTWHO_OTHER_PARTNER = tempted_social_other_partner, TEMPTWHO_OTHER_STRANGER = tempted_social_other_stranger,
+           IMPTEVENT_2HR = Q10_stressevents,
+           TOBACCO_2HR = Q11_tobacco,
+           DRINKS_2HR, DRINKS_WHERE_2HR = Q12_b_alcohol_where,
+           DRINKS_WHOCLOSE5 = Q12_c_alcohol_who,
+           DRINKS_WHOOTHER = Q12_d_alcohol_who_other,
+           DRINKS_OTHERSDRINKING, ANYDRUGS_2HR, 
+           DRUGSTYPE = Q13_a_drugs_type,
+           DRUGSWHERE = Q13_b_drugs_where,
+           DRUGSWHO_CLOSE5 = Q13_c_drugs_who,
+           DRUGSWHO_OTHER = Q13_d_drugs_who_other,
+           DRUGS_OTHERSUSING,TEMPTED_2HR, 
+           TEMPTWHERE = Q14_a_tempted_where,
+           TEMPTWHO_CLOSE5 = Q14_b_tempted_who,  
+           TEMPTWHO_OTHER = Q14_c_tempted_who_other,
            OTHERSUSINGWHENTEMPTED) %>%
     mutate(PA_SUM = (HAPPY_NOWDS + CALM_NOWDS)/2,
            NA_SUM = (STRESSED_NOWDS + SAD_NOWDS + IRRITATED_NOWDS)/3,
@@ -549,6 +526,73 @@ gps_fusion_adapter <- function(new_gps, data_dirname){
            LONGITUDE = ifelse(is.na(LONGITUDE), temp_long,LONGITUDE)) %>%
     select(-temp_lat,-temp_long) %>%
     filter(STATUS != "Never Started") 
+  # 
+  # selected_gps <- new_gps %>%
+  #   mutate(WHERE_NOW = as.character(where), DOINGWHAT_NOW = as.character(what),
+  #          HAPPY_NOW = as.character(happy), STRESSED_NOW = as.character(stressed),
+  #          SAD_NOW = as.character(sad), IRRITATED_NOW = as.character(irritated),
+  #          CALM_NOW = as.character(calm), EXCITED_NOW = as.character(excited),
+  #          BORED_NOW = as.character(bored), HUNGRY_NOW = as.character(hungry),
+  #          HAPPY_NOWDS = as.integer(happy), STRESSED_NOWDS = as.integer(stressed),
+  #          SAD_NOWDS = as.integer(sad), IRRITATED_NOWDS = as.integer(irritated),
+  #          CALM_NOWDS = as.integer(calm), EXCITED_NOWDS = as.integer(excited),
+  #          BORED_NOWDS = as.integer(bored), HUNGRY_NOWDS = as.integer(hungry),
+  #          DRINKS_2HR = as.character(alcohol), DRINKS_OTHERSDRINKING = as.character(alcohol_social_use),
+  #          ANYDRUGS_2HR = as.character(drugs), DRUGS_OTHERSUSING = as.character(drugs_social_use),
+  #          TEMPTED_2HR = as.character(tempted), OTHERSUSINGWHENTEMPTED = as.character(tempted_social_use),
+  #          LOCTIMESTAMP = strftime(fulltime, format = "%a %b %d %T %Z %Y")) %>%
+  #   select(PID = system_file, SURVEYNUMBER = PromptID,PROMPT_REPROMPT = PromptType,
+  #          STATUS = Status, DATE = PromptDate, PROMPTTIME = PromptTime, LOCTIMESTAMP,
+  #          LATITUDE = latitude, LONGITUDE = longitude, ACCURACY = accuracy, CLOSEST5_2HR = Q1_social,
+  #          SOCIAL_OTHER_2HR_STAFF = social_other_staff, SOCIAL_OTHER_2HR_STAFF = social_other_staff,
+  #          SOCIAL_OTHER_2HR_HOMEFRIENDS = social_other_homefriends, SOCIAL_OTHER_2HR_STREETFRIENDS = social_other_streetfriends,
+  #          SOCIAL_OTHER_2HR_POLICE = social_other_police, SOCIAL_OTHER_2HR_COWORKER = social_other_coworker,
+  #          SOCIAL_OTHER_2HR_PARTNER = social_other_partner, SOCIAL_OTHER_2HR_STRANGER = social_other_stranger,
+  #          WHERE_NOW, SAFE_NOW, DOINGWHAT_NOW, HAPPY_NOW, STRESSED_NOW, SAD_NOW, IRRITATED_NOW,CALM_NOW,
+  #          EXCITED_NOW, BORED_NOW, HUNGRY_NOW, HAPPY_NOWDS, STRESSED_NOWDS, SAD_NOWDS,
+  #          IRRITATED_NOWDS, CALM_NOWDS, EXCITED_NOWDS, BORED_NOWDS, HUNGRY_NOWDS,
+  #          IMPTEVENT_2HR_LAW = stress_events_law, IMPTEVENT_2HR_NONE = stress_events_none,
+  #          IMPTEVENT_2HR_PHYSICALFIGHT = stress_events_physicalfight, IMPTEVENT_2HR_BADNEWS = stress_events_badnews,
+  #          IMPTEVENT_2HR_GOODNEWS = stress_events_goodnews, IMPTEVENT_2HR_VERBALFIGHT = stress_events_verbalfight,
+  #          TOBACCO_2HR_OTHER = tobacco_other, TOBACCO_2HR_CHEW = tobacco_chew,
+  #          TOBACCO_2HR_VAPE = tobacco_vape, TOBACCO_2HR_NONE = tobacco_none,
+  #          TOBACCO_2HR_PAPER = tobacco_paper, DRINKS_2HR, DRINKS_WHERE_2HR_TRANSIT = alcohol_where_transit,
+  #          DRINKS_WHERE_2HR_APARTMENT = alcohol_where_apartment, DRINKS_WHERE_2HR_OTHER = alcohol_where_other,
+  #          DRINKS_WHERE_2HR_OUTDOORS = alcohol_where_outdoors, DRINKS_WHERE_2HR_BUSINESS = alcohol_where_business,
+  #          DRINKS_WHERE_2HR_OTHERRESIDENCE = alcohol_where_otherresidence, DRINKS_WHERE_2HR_SCHOOLWORK = alcohol_where_schoolwork,
+  #          DRINKS_WHERE_2HR_SERVICE = alcohol_where_service, DRINKS_WHOCLOSE5 = Q12_c_alcohol_who,
+  #          DRINKS_WHOOTHER_FAMILY = alcohol_social_other_family, DRINKS_WHOOTHER_HOMEFRIENDS = alcohol_social_other_homefriends,
+  #          DRINKS_WHOOTHER_STREETFRIENDS = alcohol_social_other_streetfriends, DRINKS_WHOOTHER_COWORKER = alcohol_social_other_coworker,
+  #          DRINKS_WHOOTHER_PARTNER = alcohol_social_other_partner, DRINKS_WHOOTHER_STRANGER = alcohol_social_other_stranger,
+  #          DRINKS_OTHERSDRINKING, ANYDRUGS_2HR, DRUGSTYPE_ECSTACY = drugs_type_ecstasy,
+  #          DRUGSTYPE_ECSTACY = drugs_type_ecstasy, DRUGSTYPE_HALLUCINOGENS = drugs_type_hallucinogens,
+  #          DRUGSTYPE_MARIJUANA = drugs_type_marijuana, DRUGSTYPE_METH = drugs_type_meth,
+  #          DRUGSTYPE_SPICE = drugs_type_spice, DRUGSTYPE_RX = drugs_type_rx,
+  #          DRUGSTYPE_OTHER = drugs_type_other, DRUGSWHERE_TRANSIT = drugs_where_transit,
+  #          DRUGSWHERE_APARTMENT = drugs_where_apartment, DRUGSWHERE_OTHER = drugs_where_other,
+  #          DRUGSWHERE_OUTDOORS = drugs_where_outdoors, DRUGSWHERE_BUSINESS = drugs_where_business,
+  #          DRUGSWHERE_OTHERRESIDENCE = drugs_where_otherresidence, DRUGSWHERE_SCHOOLWORK = drugs_where_schoolwork,
+  #          DRUGSWHERE_SERVICE = drugs_where_service, DRUGSWHO_CLOSE5 = Q13_c_drugs_who,
+  #          DRUGSWHO_OTHER_FAMILY = drugs_social_other_family, DRUGSWHO_OTHER_HOMEFRIENDS = drugs_social_other_homefriends,
+  #          DRUGSWHO_OTHER_STREETFRIENDS = drugs_social_other_streetfriends, DRUGSWHO_OTHER_COWORKER = drugs_social_other_coworker,
+  #          DRUGSWHO_OTHER_PARTNER = drugs_social_other_partner, DRUGSWHO_OTHER_STRANGER = drugs_social_other_stranger,
+  #          DRUGS_OTHERSUSING,TEMPTED_2HR, TEMPTWHERE_TRANSIT = tempted_where_transit,
+  #          TEMPTWHERE_APARTMENT = tempted_where_apartment, TEMPTWHERE_OTHER = tempted_where_other,
+  #          TEMPTWHERE_OUTDOORS = tempted_where_outdoors, TEMPTWHERE_BUSINESS = tempted_where_business,
+  #          TEMPTWHERE_OTHERRESIDENCE = tempted_where_otherresidence, TEMPTWHERE_SCHOOLWORK = tempted_where_schoolwork,
+  #          TEMPTWHERE_SERVICE = tempted_where_service, TEMPTWHO_CLOSE5 = Q14_b_tempted_who,  
+  #          TEMPTWHO_OTHER_FAMILY = tempted_social_other_family, TEMPTWHO_OTHER_HOMEFRIENDS = tempted_social_other_homefriends,
+  #          TEMPTWHO_OTHER_STREETFRIENDS = tempted_social_other_streetfriends, TEMPTWHO_OTHER_COWORKER = tempted_social_other_coworker,
+  #          TEMPTWHO_OTHER_PARTNER = tempted_social_other_partner, TEMPTWHO_OTHER_STRANGER = tempted_social_other_stranger,
+  #          OTHERSUSINGWHENTEMPTED) %>%
+  #   mutate(PA_SUM = (HAPPY_NOWDS + CALM_NOWDS)/2,
+  #          NA_SUM = (STRESSED_NOWDS + SAD_NOWDS + IRRITATED_NOWDS)/3,
+  #          temp_long = runif(nrow(new_gps),-118.808275,-118.501087),
+  #          temp_lat = runif(nrow(new_gps),33.720756,33.989567),
+  #          LATITUDE = ifelse(is.na(LATITUDE),temp_lat,LATITUDE),
+  #          LONGITUDE = ifelse(is.na(LONGITUDE), temp_long,LONGITUDE)) %>%
+  #   select(-temp_lat,-temp_long) %>%
+  #   filter(STATUS != "Never Started") 
   
   mean_affect <- selected_gps %>%
     group_by(PID) %>%
@@ -559,26 +603,27 @@ gps_fusion_adapter <- function(new_gps, data_dirname){
     mutate(PA_ABOVEAVG = ifelse(PA_SUM>PA_MEAN,"Yes","No"),
            NA_ABOVEAVG = ifelse(NA_SUM>NA_MEAN,"Yes","No"))
   
-  write_csv(print_ema_fusion,paste0(data_dirname,"ema_fusion.csv"), na = "")
+  write_csv(print_ema_fusion,paste(export_dirname,"ema_fusion.csv", sep = "/"), na = "")
   
   all_ids <- unique(print_ema_fusion$PID)
   for(id in all_ids){
+    print(paste0("Writing ID number: ",id))
     temp_dataset <- filter(print_ema_fusion, PID == id)
-    write_csv(temp_dataset,paste0(data_dirname,"GPS Fusion/","ema_fusion_",id,".csv"), na = "")
+    write_csv(temp_dataset,paste0(export_dirname,"/","ema_fusion_",id,".csv"), na = "")
   }
   
   return(print_ema_fusion)
 }
 
-tidy_gps <- function(data_dirname, ema_dirname, ema_manual_dirname, 
-                     gps_dirname, gps_manual_dirname){
-  ema <- tidy_ema(data_dirname, ema_dirname, ema_manual_dirname) %>%
+tidy_gps <- function(data_dirname, wockets_dirname, manual_dirname = "", skip_manual = FALSE, retain_names = FALSE){
+  ema <- tidy_ema(data_dirname = data_dirname, wockets_dirname = wockets_dirname,
+                  manual_dirname = manual_dirname, skip_manual = skip_manual, retain_names = retain_names) %>%
     mutate(file_id = system_file)
   
   ema_dt <- as.data.table(ema)
   ema_dt[, merge_row := .I]
 
-  gps <- read_gps(data_dirname, gps_dirname, gps_manual_dirname)
+  gps <- read_gps(data_dirname, wockets_dirname, manual_dirname, skip_manual = skip_manual)
   ema_premerge <- ema_dt[, c("PromptTime","file_id","merge_row")]
   ema_premerge[, PromptTime := str_replace(PromptTime,"PDT","")]
   ema_premerge[, PromptTime := str_replace(PromptTime,"PST","")]
@@ -625,22 +670,27 @@ tidy_gps <- function(data_dirname, ema_dirname, ema_manual_dirname,
   new_gps[, merge_row := NULL]
   new_gps[, file_id.x := NULL]
   new_gps[, file_id.y := NULL]
-  write_csv(new_gps,paste0(data_dirname,"ema_gps.csv"))
+  write_csv(new_gps,paste(data_dirname,"ema_gps.csv", sep = "/"))
   return(new_gps)
 }
 
-export_person_level <- function(data_dirname, ema_dirname, ema_manual_dirname){
-  ema <- tidy_ema(data_dirname, ema_dirname, ema_manual_dirname) %>%
-    mutate(participant = system_file)
+export_person_level <- function(data_dirname, wockets_dirname, manual_dirname, 
+                                sni_stata_filename = "", skip_sni = TRUE, skip_manual = FALSE,
+                                export_dirname = data_dirname){
+  ema <- tidy_gps(data_dirname = data_dirname, wockets_dirname = wockets_dirname,
+                  manual_dirname = manual_dirname, skip_manual = skip_manual) %>%
+  mutate(participant = system_file)
   
   ema_person_compliance <- ema %>%
-    mutate(comply = ifelse(Status == "Completed",1,0)) %>%
+    mutate(comply = ifelse(Status == "Completed",1,0),
+           gps_bin = as.integer(!is.na(latitude))) %>%
     group_by(participant) %>%
-    summarize_at(vars(ema_compliance = comply),funs(mean(.,na.rm=TRUE)))
+    summarize_at(vars(ema_compliance = comply,
+                      gps_availability = gps_bin),funs(mean(.,na.rm=TRUE)))
   
   ema_person <- ema %>%
     mutate(alcohol_bin = as.integer(alcohol) != 1,
-           drugs_bin = as.integer(drugs) != 1,
+           drugs_bin = as.integer(drugs) == 1,
            tobacco_bin = as.integer(tobacco_none) != 1,
            marijuana_bin = as.integer(drugs_type_marijuana)) %>%
     group_by(participant) %>%
@@ -652,13 +702,15 @@ export_person_level <- function(data_dirname, ema_dirname, ema_manual_dirname){
                       ema_meth_events = drugs_type_meth,
                       ema_rx_events = drugs_type_rx,
                       ema_spice_events = drugs_type_spice,
-                      ema_other_events = drugs_type_other,
-                      ema_sum_harddrug_events = drugs_bin)
+                      ema_other_events = drugs_type_other)
                  ,funs(sum(., na.rm = TRUE))) %>%
-    mutate(ema_sum_harddrug_events = ema_sum_harddrug_events - ema_marijuana_events) %>%
+    mutate(ema_sum_harddrug_events = ema_other_events + ema_spice_events + ema_rx_events +
+             ema_meth_events + ema_hallucinogens_events + ema_ecstasy_events) %>%
     left_join(ema_person_compliance, by = "participant")
   
-  daily <- tidy_daily(data_dirname, ema_dirname, ema_manual_dirname, sni_stata_filename) %>%
+  daily <- tidy_daily(data_dirname = data_dirname, wockets_dirname = wockets_dirname,
+                      manual_dirname = manual_dirname, sni_stata_filename = sni_stata_filename,
+                      skip_manual = skip_manual, skip_sni = skip_sni) %>%
     mutate(participant = subject_id)
   
   daily_person_compliance <- daily %>%
@@ -684,45 +736,40 @@ export_person_level <- function(data_dirname, ema_dirname, ema_manual_dirname){
     left_join(daily_person_compliance, by = "participant") %>%
     left_join(ema_person, by = "participant")
     
-  write_csv(daily_person,paste0(data_dirname,"export_person.csv"))
+  write_csv(daily_person,paste(export_dirname,"export_person.csv", sep = "/"))
   return(TRUE)
 }
 
 
-tidy_daily <- function(data_dirname, ema_dirname, ema_manual_dirname, sni_stata_filename){
+tidy_daily <- function(data_dirname, wockets_dirname, 
+                       manual_dirname, sni_stata_filename = "", 
+                       skip_sni = FALSE, skip_manual = FALSE){
+  dailylog_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","PromptResponses_Dailylog.csv$", hour_filter = FALSE)
+  raw_dailylog <- lapply(dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
   
-  data_files <- dir(paste0(data_dirname,ema_dirname),pattern = "lml_com$")
-  if(.Platform$OS.type == "windows"){
-    pre_survey <- paste0(data_dirname,ema_dirname,data_files)
-  } else {
-    pre_survey <- paste0(data_dirname,ema_dirname,data_files,"/surveys")
+  if(!skip_manual){
+    manual_dailylog_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","PromptResponses_Dailylog.csv$", hour_filter = FALSE)
+    manual_raw_dailylog <- lapply(manual_dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
   }
-  date_files <- dir(pre_survey, full.names = TRUE)
-  dailylog_response_files <- paste(date_files,"/PromptResponses_Dailylog.csv", sep = "")
-  
-  manual_data_files <- dir(paste0(data_dirname,ema_manual_dirname),pattern = "lml_com$")
-  if(.Platform$OS.type == "windows"){
-    manual_pre_survey <- paste0(data_dirname,ema_manual_dirname,manual_data_files)
-  } else {
-    manual_pre_survey <- paste0(data_dirname,ema_manual_dirname,manual_data_files,"/surveys")
-  }
-  
-  manual_date_files <- dir(manual_pre_survey, full.names = TRUE)
-  manual_dailylog_response_files <- list.files(manual_date_files, pattern = "PromptResponses_Dailylog.csv$", full.names = TRUE, recursive = TRUE, include.dirs = FALSE)
-
-  raw_dailylog <- lapply(dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = ema_dirname)
-  manual_raw_dailylog <- lapply(manual_dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = ema_manual_dirname)
   
   dailylog_responses <- raw_dailylog[[1]]
   for(i in 2:length(raw_dailylog)){
     dailylog_responses <- bind_rows(dailylog_responses,raw_dailylog[[i]])
   }
-  manual_dailylog_responses <- manual_raw_dailylog[[1]]
-  for(i in 2:length(manual_raw_dailylog)){
-    manual_dailylog_responses <- bind_rows(manual_dailylog_responses,manual_raw_dailylog[[i]])
+  if(!skip_manual){
+    manual_dailylog_responses <- manual_raw_dailylog[[1]]
+    for(i in 2:length(manual_raw_dailylog)){
+      manual_dailylog_responses <- bind_rows(manual_dailylog_responses,manual_raw_dailylog[[i]])
+    }
+    merge_responses <- anti_join(manual_dailylog_responses,dailylog_responses, by = c("system_file","PromptTime"))
+    pre_filtered_dailylog <- bind_rows(dailylog_responses,merge_responses)
+  } else {
+    pre_filtered_dailylog <- dailylog_responses
   }
-  merge_responses <- anti_join(manual_dailylog_responses,dailylog_responses, by = c("system_file","PromptTime"))
-  pre_filtered_dailylog <- bind_rows(dailylog_responses,merge_responses)
+  
+  pre_filtered_dailylog <- generate_missing_column(pre_filtered_dailylog,c(
+    "Q4_10_a_coke","Q4_10_a_coke_number", "Q7_sex_exchange_where_other", "Q7_sex_exchange_where"
+  ))
   
   filtered_dailylog <- pre_filtered_dailylog %>%
     filter(!is.na(Subject_ID)) %>%
@@ -778,76 +825,82 @@ tidy_daily <- function(data_dirname, ema_dirname, ema_manual_dirname, sni_stata_
            ) %>%
     bind_cols(drugs_type_daily(.)) %>%
     bind_cols(sex_partners_daily(.)) %>%
-    bind_cols(social_daily(., sni_stata_filename, "core")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "alcohol")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "marijuana")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "synthetic")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "meth")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "rx")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "mdma")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "hallucinogen")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "heroin")) %>%
-    bind_cols(social_daily(., sni_stata_filename, "cocaine")) %>%
-    bind_cols(sex_where_daily(.)) %>%
-    select(-Q3_sleeploc,-Q1_waketime,-Q2_sleeptime,-Q3_b_sleep_quality,
-           -Q4a_substances,-Q4b_substances,-Q4_17_b_other,
-           -Q4_2_alcohol,-Q4_2_a_alcohol,
-           -Q4_3_marijuana,-Q4_3_a_marijuana,
-           -Q4_6_synthmj,
-           -Q4_4_meth,-Q4_4_a_meth,
-           -Q4_8_prescription,-Q4_8_a_prescription,
-           -Q4_5_mdma,-Q4_5_a_mdma,
-           -Q4_7_halluc,
-           -Q4_9_heroin,-Q4_9_a_heroin,
-           -Q4_10_a_coke,-Q4_10_a_coke_type,-Q4_10_b_coke,-Q4_10_a_coke_number,
-           -Q5_sex_partners,-Q5_sex_a_id,-Q7_sex_exchange,-Q7_sex_exchange_where,-Q7_sex_exchange_where_other,
-           -starts_with("R",ignore.case = FALSE),
-           -Q4_0_soccore,-Q4_2_b_alcohol_who,-Q4_3_b_marijuana_who,-Q4_6_b_synthmj_who,
-           -Q4_4_b_meth_who,-Q4_8_b_prescription_who,-Q4_5_b_mdma_who,-Q4_7_b_halluc_who,
-           -Q4_9_b_heroin_who,-Q4_10_c_coke_who
-           ) 
-    
+    bind_cols(sex_where_daily(.))
+  if(!skip_sni){
+    return_dailylog <- filtered_dailylog %>%
+      bind_cols(social_daily(., sni_stata_filename, "core")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "alcohol")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "marijuana")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "synthetic")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "meth")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "rx")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "mdma")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "hallucinogen")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "heroin")) %>%
+      bind_cols(social_daily(., sni_stata_filename, "cocaine")) %>%
+      select(-Q3_sleeploc,-Q1_waketime,-Q2_sleeptime,-Q3_b_sleep_quality,
+             -Q4a_substances,-Q4b_substances,-Q4_17_b_other,
+             -Q4_2_alcohol,-Q4_2_a_alcohol,
+             -Q4_3_marijuana,-Q4_3_a_marijuana,
+             -Q4_6_synthmj,
+             -Q4_4_meth,-Q4_4_a_meth,
+             -Q4_8_prescription,-Q4_8_a_prescription,
+             -Q4_5_mdma,-Q4_5_a_mdma,
+             -Q4_7_halluc,
+             -Q4_9_heroin,-Q4_9_a_heroin,
+             -Q4_10_a_coke,-Q4_10_a_coke_type,-Q4_10_b_coke,-Q4_10_a_coke_number,
+             -Q5_sex_partners,-Q5_sex_a_id,-Q7_sex_exchange,-Q7_sex_exchange_where,-Q7_sex_exchange_where_other,
+             -starts_with("R",ignore.case = FALSE),
+             -Q4_0_soccore,-Q4_2_b_alcohol_who,-Q4_3_b_marijuana_who,-Q4_6_b_synthmj_who,
+             -Q4_4_b_meth_who,-Q4_8_b_prescription_who,-Q4_5_b_mdma_who,-Q4_7_b_halluc_who,
+             -Q4_9_b_heroin_who,-Q4_10_c_coke_who
+             ) 
+  } else {
+    return_dailylog <- filtered_dailylog %>%
+      select(-Q3_sleeploc,-Q1_waketime,-Q2_sleeptime,-Q3_b_sleep_quality,
+             -Q4a_substances,-Q4b_substances,-Q4_17_b_other,
+             -Q4_2_alcohol,-Q4_2_a_alcohol,
+             -Q4_3_marijuana,-Q4_3_a_marijuana,
+             -Q4_6_synthmj,
+             -Q4_4_meth,-Q4_4_a_meth,
+             -Q4_8_prescription,-Q4_8_a_prescription,
+             -Q4_5_mdma,-Q4_5_a_mdma,
+             -Q4_7_halluc,
+             -Q4_9_heroin,-Q4_9_a_heroin,
+             -Q4_10_a_coke,-Q4_10_a_coke_type,-Q4_10_b_coke,-Q4_10_a_coke_number,
+             -Q5_sex_partners,-Q5_sex_a_id,-Q7_sex_exchange,-Q7_sex_exchange_where,-Q7_sex_exchange_where_other,
+             -starts_with("R",ignore.case = FALSE)
+      )
+    }
              
   
-  return(filtered_dailylog)
+  return(return_dailylog)
 }
 
-tidy_ema <- function(data_dirname, ema_dirname, ema_manual_dirname, remove_sni = TRUE) {
+tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname, remove_sni = TRUE, skip_manual = FALSE, retain_names = FALSE) {
+  ema_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
+  raw_ema <- lapply(ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
   
-  data_files <- dir(paste0(data_dirname,ema_dirname),pattern = "lml_com$")
-  if(.Platform$OS.type == "windows"){
-    pre_survey <- paste0(data_dirname,ema_dirname,data_files)
-  } else {
-    pre_survey <- paste0(data_dirname,ema_dirname,data_files,"/surveys")
+  if(!skip_manual){
+    manual_ema_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
+    manual_raw_ema <- lapply(manual_ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
   }
-  date_files <- dir(pre_survey, full.names = TRUE)
-  prompt_files <- paste(date_files,"/Prompts.csv", sep = "")
-  ema_response_files <- paste(date_files,"/PromptResponses_EMA.csv", sep = "")
-  
-  manual_data_files <- dir(paste0(data_dirname,ema_manual_dirname),pattern = "lml_com$")
-  if(.Platform$OS.type == "windows"){
-    manual_pre_survey <- paste0(data_dirname,ema_manual_dirname,manual_data_files)
-  } else {
-    manual_pre_survey <- paste0(data_dirname,ema_manual_dirname,manual_data_files,"/surveys")
-  }
-  manual_date_files <- dir(manual_pre_survey, full.names = TRUE)
-  manual_prompt_files <- list.files(manual_date_files, pattern = "Prompts.csv$", full.names = TRUE, recursive = TRUE, include.dirs = FALSE)
-  manual_ema_response_files <- list.files(manual_date_files, pattern = "PromptResponses_EMA.csv$", full.names = TRUE, recursive = TRUE, include.dirs = FALSE)
-
-  raw_ema <- lapply(ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = ema_dirname)
-  manual_raw_ema <- lapply(manual_ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = ema_manual_dirname)
   
   ema_responses <- raw_ema[[1]]
   for(i in 2:length(raw_ema)){
     ema_responses <- bind_rows(ema_responses,raw_ema[[i]])
   }
-  manual_ema_responses <- manual_raw_ema[[1]]
-  for(i in 2:length(manual_raw_ema)){
-    manual_ema_responses <- bind_rows(manual_ema_responses,manual_raw_ema[[i]])
+  if(!skip_manual){
+    manual_ema_responses <- manual_raw_ema[[1]]
+    for(i in 2:length(manual_raw_ema)){
+      manual_ema_responses <- bind_rows(manual_ema_responses,manual_raw_ema[[i]])
+    }
+    merge_responses <- anti_join(manual_ema_responses,ema_responses, by = c("system_file","PromptTime"))
+    pre_filtered_ema <- bind_rows(ema_responses,merge_responses)
+  } else {
+    pre_filtered_ema <- ema_responses
   }
-  merge_responses <- anti_join(manual_ema_responses,ema_responses, by = c("system_file","PromptTime"))
-  pre_filtered_ema <- bind_rows(ema_responses,merge_responses)
-  
+
   filtered_ema <- pre_filtered_ema %>%
     mutate_all(funs(as_character)) %>%
     filter(!is.na(Subject_ID)) %>%
@@ -861,6 +914,11 @@ tidy_ema <- function(data_dirname, ema_dirname, ema_manual_dirname, remove_sni =
                                                                      "Moderately",
                                                                      "Quite a bit",
                                                                      "Extremely")))) %>%
+    mutate(safe = factor(Q2_safe, levels = c("Very unsafe",
+                                          "Somewhat unsafe",
+                                          "Neither safe nor unsafe",
+                                          "Somewhat safe",
+                                          "Very safe"))) %>%
     mutate(Q10_stressevents = ifelse(Q10_stressevents == "0",NA_character_,Q10_stressevents),
       Q10_stressevents = ifelse(Q10_stressevents == "A tobacco product not listed here",NA_character_,Q10_stressevents),
       Q10_stressevents = ifelse(Q10_stressevents == "I have not used tobacco",NA_character_,Q10_stressevents),
@@ -870,7 +928,7 @@ tidy_ema <- function(data_dirname, ema_dirname, ema_manual_dirname, remove_sni =
       Q11_tobacco = ifelse(Q11_tobacco == "1",NA_character_,Q11_tobacco),
       Q12_alcohol = ifelse(Q12_alcohol == "My apartment/residence",NA_character_,Q12_alcohol),
       Q12_b_alcohol_where = ifelse(Q12_b_alcohol_where == "self",NA_character_,Q12_b_alcohol_where),
-      Q12_d_alcohol_who_other = ifelse(Q12_d_alcohol_who_other == "No",NA_character_,Q12_d_alcohol_who_other)) %>% 
+      Q12_d_alcohol_who_other = ifelse(Q12_d_alcohol_who_other == "No",NA_character_,Q12_d_alcohol_who_other)) %>%
     mutate(where = as_factor(Q2_where),
            what = as_factor(Q2_what),
            alcohol = as_factor(Q12_alcohol),
@@ -890,15 +948,21 @@ tidy_ema <- function(data_dirname, ema_dirname, ema_manual_dirname, remove_sni =
     bind_cols(drugs_where_ema(.)) %>%
     bind_cols(drugs_who_other_ema(.)) %>%
     bind_cols(tempted_where_ema(.)) %>%
-    bind_cols(tempted_who_other_ema(.)) %>%
-    select(-Q2_where,
-           -Q1_a_socialother,
-           -Q2_what,
-           -Q10_stressevents,
-           -Q11_tobacco,
-           -Q12_alcohol,-Q12_b_alcohol_where,-Q12_d_alcohol_who_other,-Q12_e_alcohol_who_use,
-           -Q13_drugs,-Q13_a_drugs_type,-Q13_b_drugs_where,-Q13_d_drugs_who_other,-Q13_e_drugs_who_use,
-           -Q14_tempted,-Q14_a_tempted_where,-Q14_c_tempted_who_other,-Q14_d_tempted_who_use)
+    bind_cols(tempted_who_other_ema(.))
+  if(retain_names){
+    return(filtered_ema)
+  } else {
+    filtered_ema <- filtered_ema %>%
+      select(-Q2_safe,
+              -Q2_where,
+             -Q1_a_socialother,
+             -Q2_what,
+             -Q10_stressevents,
+             -Q11_tobacco,
+             -Q12_alcohol,-Q12_b_alcohol_where,-Q12_d_alcohol_who_other,-Q12_e_alcohol_who_use,
+             -Q13_drugs,-Q13_a_drugs_type,-Q13_b_drugs_where,-Q13_d_drugs_who_other,-Q13_e_drugs_who_use,
+             -Q14_tempted,-Q14_a_tempted_where,-Q14_c_tempted_who_other,-Q14_d_tempted_who_use)
+  }
 
   return(filtered_ema)
 }

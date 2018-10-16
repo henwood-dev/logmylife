@@ -10,8 +10,40 @@ library(tidyverse)
 
 select <- dplyr::select
 
+prebind_data <- function(filtered_data, variable_prefix, name_keys = "", name_value_pairs = "", return_name_columns = FALSE){
+  if(sum(!is.na(filtered_data %>% select(!!variable_prefix))>0)){
+    filtered_newvars <- cSplit_e(filtered_data, variable_prefix,type = "character", fill = 0, sep = ",|")
+    names(filtered_newvars) <- enc2native(names(filtered_newvars))
+    selected_data <- filtered_newvars %>%
+      mutate_at(vars(starts_with(paste0(variable_prefix,"_"))),funs(ifelse(is.na(eval(parse(text = variable_prefix))),NA,.))) %>%
+      select(starts_with(paste0(variable_prefix,"_")))
+    if(return_name_columns){
+      return(names(selected_data))
+    }
+    names(selected_data) <- name_keys[names(selected_data)]
+    new_return <- generate_missing_column(selected_data,get_labels(name_keys))
+    return_data <- new_return %>%
+      var_labels(name_value_pairs)
+  } else {
+    new_return <- generate_missing_column(filtered_data,get_labels(name_keys))
+    return_data <- new_return %>%
+      select(starts_with(paste0(variable_prefix,"_")))
+  }
+  return(return_data)
+}
+
+generate_missing_column <- function(data_name, column_names){
+  return_data_name <- data_name
+  for(i in column_names){
+    if(!(i %in% names(return_data_name))){
+      return_data_name <- mutate(return_data_name, !!i := NA)
+    }
+  }
+  return(return_data_name)
+}
+
 enrollment_dates <- function(data_dirname){
-  enrollment <- read_csv(paste0(data_dirname,"enrollment.csv")) %>%
+  enrollment <- read_csv(paste(data_dirname,"enrollment.csv", sep = "/")) %>%
     select(file_id = PID_master,start_date = appstartdate,stop_date = appenddate,
            end_date = Date_Visit2, hours_up = 'wake-sleepDIF', true_wake = waketime,
            true_sleep = sleeptime) %>%
@@ -29,37 +61,36 @@ enrollment_dates <- function(data_dirname){
     filter(as.integer(file_id)<3000) %>%
     select(file_id,enroll_start = start_date,enroll_end = true_end)
   
-  write_csv(as.data.frame(enrollment$file_id),paste0(data_dirname,"pids.txt"),col_names = FALSE)
+  write_csv(as.data.frame(enrollment$file_id),paste(data_dirname,"pids.txt",sep = "/"),col_names = FALSE)
   
   return(enrollment)
 }
 
-read_gps <- function(data_dirname,gps_dirname,gps_manual_dirname){
-  data_files <- dir(paste0(data_dirname,gps_dirname),pattern = "lml_com$")
-  gps_dirs <- paste0(data_dirname,gps_dirname,data_files)
-  if(.Platform$OS.type == "windows"){
-    date_files <- dir(paste0(gps_dirs), full.names = TRUE)
-  } else {
-    date_files <- dir(paste0(gps_dirs,"/data"), full.names = TRUE)
+read_file_list <- function(data_dirname, midpoint_dirname, end_dirname, id_filter, file_filter, hour_filter = TRUE){
+  data_files <- dir(paste(data_dirname,midpoint_dirname, sep = "/"),pattern = id_filter)
+  data_dirs <- paste(data_dirname,midpoint_dirname,data_files, sep = "/")
+  date_files <- dir(paste(data_dirs,end_dirname, sep = "/"), full.names = TRUE)
+  if(hour_filter){
+    date_files <- dir(date_files, full.names = TRUE)
   }
-  hour_files <- dir(date_files, full.names = TRUE)
-  gps_files <- list.files(hour_files,pattern = "GPS.csv$", full.names = TRUE, include.dirs = FALSE)
+  return_files <- list.files(date_files,pattern = file_filter, full.names = TRUE, include.dirs = FALSE, recursive = TRUE)
+  return(return_files)
+}
+
+read_gps <- function(data_dirname,wockets_dirname,manual_dirname, skip_manual = FALSE){
+  gps_files <- read_file_list(data_dirname,wockets_dirname,"data/","lml_com$","GPS.csv$")
+  pre_raw_gps_log <- rbindlist(lapply(gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = wockets_dirname), fill = TRUE)
   
-  manual_data_files <- dir(paste0(data_dirname,gps_manual_dirname),pattern = "lml_com$")
-  manual_gps_dirs <- paste0(data_dirname,gps_manual_dirname,manual_data_files)
-  if(.Platform$OS.type == "windows"){
-    manual_date_files <- dir(paste0(manual_gps_dirs), full.names = TRUE)
-  } else {
-    manual_date_files <- dir(paste0(manual_gps_dirs,"/data"), full.names = TRUE)
-  }
-  manual_hour_files <- dir(manual_date_files, full.names = TRUE)
-  manual_gps_files <- list.files(manual_hour_files,pattern = "GPS.csv", full.names = TRUE, include.dirs = FALSE, recursive = TRUE)
-  
+  if(!skip_manual){
+  manual_gps_files <- read_file_list(data_dirname,manual_dirname,"data","lml_com$","GPS.csv$")
+  manual_raw_gps_log <- rbindlist(lapply(manual_gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = manual_dirname), fill = TRUE)
   # Switching to Data.Table Paradigm for Fast GPS Processing
-  pre_raw_gps_log <- rbindlist(lapply(gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = gps_dirname), fill = TRUE)
-  manual_raw_gps_log <- rbindlist(lapply(manual_gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = gps_manual_dirname), fill = TRUE)
   merge_manual <- anti_join(manual_raw_gps_log,pre_raw_gps_log, by = c("file_id","V1"))
   raw_gps_log <- bind_rows(pre_raw_gps_log,merge_manual)
+  } else {
+    raw_gps_log <- pre_raw_gps_log
+  }
+  
   names(raw_gps_log) <- c("a","b","c","d","e","f","file_id")
   raw_gps_log[, log_time := as.POSIXct(a, tz = "America/Los_Angeles", format = "%Y-%m-%d %H:%M:%S", origin = "1970-01-01")]
   raw_gps_log[, measure_time := as.POSIXct(b, tz = "America/Los_Angeles", format = "%Y-%m-%d %H:%M:%S", origin = "1970-01-01")]
@@ -81,8 +112,8 @@ read_gps <- function(data_dirname,gps_dirname,gps_manual_dirname){
 skip_fread <- function(file, data_dirname, suffix_dirname){
   if(file.size(file) > 0){
     try({
-      return_csv <- fread(file, colClasses = 'character')
-      idstringlength <- str_length(paste0(data_dirname,suffix_dirname))
+      return_csv <- fread(file, colClasses = 'character', encoding = "UTF-8")
+      idstringlength <- str_length(paste(data_dirname,suffix_dirname,"", sep = "/"))
       id <- str_sub(file,idstringlength+4,idstringlength+7)
       return_csv[, file_id := id]
       new_return_csv <- return_csv[!is.na(V2)]
@@ -121,7 +152,7 @@ read_ema <- function(file_to_read, data_dirname, suffix_dirname){
   try({
     file_cols <- ncol(read_csv(file_to_read))
     return_ema_file <- read_csv(file_to_read, col_types = str_flatten(rep("c",file_cols)))
-    idstringlength <- str_length(paste0(data_dirname,suffix_dirname))
+    idstringlength <- str_length(paste(data_dirname,suffix_dirname,"", sep = "/"))
     id <- str_sub(file_to_read,idstringlength+4,idstringlength+7)
     return_ema_file$system_file <- id
     return_ema_file$discard <- NULL

@@ -91,68 +91,68 @@ social_daily <- function(filtered_dailylog, sni_stata_filename, social_type){
 }
 
 sex_where_daily <- function(filtered_dailylog){
-  #filtered_dailylog <- mutate(filtered_dailylog,Q13_a_drugs_type = ifelse(Q13_a_drugs_type == "Ecstasy / MDMA / “Molly”","Ecstasy / MDMA / Molly",Q13_a_drugs_type))
-  return_dailylog <- mutate(filtered_dailylog,sex_exchange_where = Q7_sex_exchange_where) # ifelse(Q7_sex_exchange_where == "Other illicit drug" & !is.na(Q4b_substances)
-  #                                                                ,Q4b_substances,Q4a_substances))
-  return_dailylog <- cSplit_e(return_dailylog, "sex_exchange_where",type = "character", fill = 0, sep = ",|")
-  return_dailylog <- return_dailylog %>%
-    mutate_at(vars(starts_with("sex_exchange_where_")),funs(ifelse(is.na(sex_exchange_where),NA,.))) %>%
-    select(starts_with("sex_exchange_where_")) %>%
-    rename(
-      sex_exchange_where_hotel = `sex_exchange_where_Hotel/motel`,
-      sex_exchange_where_shelter = `sex_exchange_where_Shelter or drop-in`) %>%
-    set_label(c("Hotel/motel",
-                "Shelter or drop-in"))
-  return(return_dailylog)
+  filtered_data <- mutate(filtered_dailylog,sex_exchange_where = Q7_sex_exchange_where)
+  new_names <- c(
+    `sex_exchange_where_Hotel/motel` = "sex_exchange_where_hotel",
+    `sex_exchange_where_Shelter or drop-in` = "sex_exchange_where_shelter",
+    `sex_exchange_where_Outside (park, beach)` = "sex_exchange_where_outside")
+  new_labels <- c(
+      sex_exchange_where_hotel = "Hotel/motel,",
+      sex_exchange_where_shelter = "Shelter or drop-in",
+      sex_exchange_where_outside = "Outside (park, beach)"
+    )
+  return_data <- prebind_data(filtered_data, "sex_exchange_where", new_names, new_labels)
+  
+  return(return_data)
 }
 
 drugs_type_daily <- function(filtered_dailylog){
   #filtered_dailylog <- mutate(filtered_dailylog,Q13_a_drugs_type = ifelse(Q13_a_drugs_type == "Ecstasy / MDMA / “Molly”","Ecstasy / MDMA / Molly",Q13_a_drugs_type))
-  return_dailylog <- mutate(filtered_dailylog,drugs_type = ifelse(Q4a_substances == "Other illicit drug" & !is.na(Q4b_substances)
+  filtered_data <- mutate(filtered_dailylog,drugs_type = ifelse(Q4a_substances == "Other illicit drug" & !is.na(Q4b_substances)
                                                                   ,Q4b_substances,Q4a_substances))
-  return_dailylog <- cSplit_e(return_dailylog, "drugs_type",type = "character", fill = 0, sep = ",|")
-  return_dailylog <- return_dailylog %>%
-    mutate_at(vars(starts_with("drugs_type_")),funs(ifelse(is.na(drugs_type),NA,.))) %>%
-    select(starts_with("drugs_type_")) %>%
-    rename(
-      drugs_type_alcohol = `drugs_type_Alcohol`,
-      drugs_type_cocaine = `drugs_type_Cocaine or crack`,
-      drugs_type_hallucinogens = `drugs_type_Hallucinogens/psychedelics`,
-      drugs_type_none = `drugs_type_I did not use any drugs yesterday`,
-      #drugs_type_ecstasy = `drugs_type_Ecstasy / MDMA / Molly`,
-      #drugs_type_hallucinogens = `drugs_type_Hallucinogens/psychedelics`,
-      drugs_type_marijuana = `drugs_type_Marijuana`,
-      drugs_type_meth = `drugs_type_Meth`,
-      drugs_type_other2 = `drugs_type_Other illicit drug`,
-      drugs_type_rx = `drugs_type_Prescription drugs, not as prescribed (Rx cough syrup, Oxycontin, Xanax, etc.)`,
-      drugs_type_other = `drugs_type_Something else not listed here`,
-      drugs_type_spice = `drugs_type_Synthetic marijuana (K2, Spice, etc.)`) %>%
+  new_names <- c(
+      `drugs_type_Alcohol` = "drugs_type_alcohol",
+      `drugs_type_Cocaine or crack` = "drugs_type_cocaine",
+      `drugs_type_Hallucinogens/psychedelics` = "drugs_type_hallucinogens",
+      `drugs_type_I did not use any drugs yesterday` = "drugs_type_none",
+      `drugs_type_Marijuana` = "drugs_type_marijuana",
+      `drugs_type_Meth` = "drugs_type_meth",
+      `drugs_type_Other illicit drug` = "drugs_type_other2",
+      `drugs_type_Prescription drugs, not as prescribed (Rx cough syrup, Oxycontin, Xanax, etc.)` = "drugs_type_rx",
+      `drugs_type_Something else not listed here` = "drugs_type_other",
+      `drugs_type_Synthetic marijuana (K2, Spice, etc.)` = "drugs_type_spice"
+      )
+  new_labels <- c(
+    drugs_type_alcohol = "Alcohol,",
+    drugs_type_cocaine = "Cocaine or crack,",
+    drugs_type_hallucinogens = "Hallucinogens/psychedelics,",
+    drugs_type_none = "I did not use any drugs yesterday,",
+    drugs_type_marijuana = "Marjuana,",
+    drugs_type_meth = "Meth,",
+    drugs_type_other = "Something else not listed here,",
+    drugs_type_other2 = "Something else not listed here,",
+    drugs_type_rx = "Prescription drugs, not as prescribed (Rx cough syrup, Oxycontin, Xanax, etc.),",
+    drugs_type_spice = "Synthetic marijuana (K2, Spice, etc.)"
+  )
+  return_data <- prebind_data(filtered_data, "drugs_type", new_names, new_labels) %>%
     mutate(drugs_type_other = ifelse(drugs_type_other2 == 1,
                                      1,drugs_type_other)) %>%
-    select(-drugs_type_other2) %>%
-    set_label(c("Alcohol",
-                "Cocaine or crack",
-                "Hallucinogens/psychedelics",
-                "I did not use any drugs yesterday",
-                #"Ecstasy / MDMA / Molly",
-                #"Hallucinogens/psychadelics",
-                "Marjuana",
-                "Meth",
-                #"Other illicit drug",
-                "Prescription drugs, not as prescribed (Rx cough syrup, Oxycontin, Xanax, etc.)",
-                "Something else not listed here",
-                "Synthetic marijuana (K2, Spice, etc.)"))
-  return(return_dailylog)
+    select(-drugs_type_other2)
+
+  return(return_data)
 }
 
 sex_partners_daily <- function(filtered_dailylog){
   return_dailylog <- filtered_dailylog %>%
     select(starts_with("R", ignore.case = FALSE)) %>%
     rename_at(vars(ends_with("sex_a_id")),funs(paste0("sex_id_p",substr(.,2,2)))) %>%
+    mutate_at(vars(ends_with("sex_b_parttype")),funs(as.character)) %>%
     mutate_at(vars(ends_with("sex_b_parttype")),funs(as_factor)) %>%
     rename_at(vars(ends_with("sex_b_parttype")),funs(paste0("sex_relation_p",substr(.,2,2)))) %>%
+    mutate_at(vars(ends_with("b2_partdur")),funs(as.character)) %>%
     mutate_at(vars(ends_with("b2_partdur")),funs(as_factor)) %>%
     rename_at(vars(ends_with("b2_partdur")),funs(paste0("sex_duration_p",substr(.,2,2)))) %>%
+    mutate_at(vars(ends_with("c_identity")),funs(as.character)) %>%
     mutate_at(vars(ends_with("c_identity")),funs(as_factor)) %>%
     rename_at(vars(ends_with("c_identity")),funs(paste0("sex_identity_p",substr(.,2,2)))) %>%
     mutate_at(vars(ends_with("d_condom")),funs(
@@ -173,8 +173,10 @@ sex_partners_daily <- function(filtered_dailylog){
     mutate_at(vars(ends_with("d_condom")),funs(
       ifelse(. == "Yes – anal without a condom <u>only</u>",
              "Yes, anal without a condom only",.))) %>%
+    mutate_at(vars(ends_with("d_condom")),funs(as.character)) %>%
     mutate_at(vars(ends_with("d_condom")),funs(as_factor)) %>%
     rename_at(vars(ends_with("d_condom")),funs(paste0("sex_condom_p",substr(.,2,2)))) %>%
+    mutate_at(vars(ends_with("e_substance")),funs(as.character)) %>%
     mutate_at(vars(ends_with("e_substance")),funs(as_factor)) %>%
     rename_at(vars(ends_with("e_substance")),funs(paste0("sex_drugs_p",substr(.,2,2))))
   
