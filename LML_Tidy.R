@@ -15,9 +15,9 @@ library(geosphere)
 select <- dplyr::select
 
 # Imports
+source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 source("LML_Tidy_EMA.R", encoding = "UTF-8")
 source("LML_Tidy_Daily.R", encoding = "UTF-8")
-source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 
 # Keys
 if(.Platform$OS.type == "windows"){

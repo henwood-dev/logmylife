@@ -72,10 +72,11 @@ gender_plot # Now no longer plots a blank graph, because geom_bar was specified
 # However, this would be tedious because we have so many and redundant because we are already mutating them
 # Starting again with gender, we also want id
 demographic_data <- baseline_data %>%
-  transmute(id = Identifier,
-            gender = as_factor(Q1_Gender),
-            age = Q2_Age,
-            weight = Q3_Weight,
-            ethnicity = as_factor(Q4_Ethnicity)
-            greek = as_factor(Q8_Greek)
-            )
+  transmute(
+    id = Identifier,
+    gender = as_factor(Q1_Gender),
+    age = Q2_Age,
+    weight = Q3_Weight,
+    ethnicity = as_factor(Q4_Ethnicity),
+    greek = as_factor(Q8_Greek)
+    )
