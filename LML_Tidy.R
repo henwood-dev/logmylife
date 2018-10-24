@@ -10,6 +10,7 @@ library(haven)
 library(tidyverse)
 library(lubridate)
 library(geosphere)
+library(bit64)
 
 # Override
 select <- dplyr::select
@@ -34,6 +35,18 @@ wockets_dirname <- "Wockets"
 manual_dirname <- "Manual"
 
 dummy3 <- function() {
+  ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
+  enroll <- read_csv("C:/Users/dzubur/Desktop/LML Raw Data/enroll_sheet.csv") %>%
+    transmute(system_file = as.character(PID_master),
+              enroll = as_date(Date_PhoneSetup, format = "%m/%d/%Y", tz = ""),
+              end = enroll + 8)
+  ema_new <- ema %>%
+    left_join(enroll, by = "system_file") %>%
+    mutate(date = as_date(PromptDate, tz = ""),
+           day = date - enroll + 1) %>%
+    filter(date <= end & date >= enroll)
+  write_dta(ema_new,"C:/Users/dzubur/Desktop/ema_data.dta")
+  
   gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
   daily <- tidy_daily(data_dirname, wockets_dirname, manual_dirname, sni_stata_filename)
   daily_sleep <- daily %>%
@@ -743,28 +756,14 @@ export_person_level <- function(data_dirname, wockets_dirname, manual_dirname,
 
 tidy_daily <- function(data_dirname, wockets_dirname, 
                        manual_dirname, sni_stata_filename = "", 
-                       skip_sni = FALSE, skip_manual = FALSE){
-  dailylog_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","PromptResponses_Dailylog.csv$", hour_filter = FALSE)
-  raw_dailylog <- lapply(dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
-  
-  if(!skip_manual){
-    manual_dailylog_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","PromptResponses_Dailylog.csv$", hour_filter = FALSE)
-    manual_raw_dailylog <- lapply(manual_dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
-  }
-  
-  dailylog_responses <- raw_dailylog[[1]]
-  for(i in 2:length(raw_dailylog)){
-    dailylog_responses <- bind_rows(dailylog_responses,raw_dailylog[[i]])
-  }
-  if(!skip_manual){
-    manual_dailylog_responses <- manual_raw_dailylog[[1]]
-    for(i in 2:length(manual_raw_dailylog)){
-      manual_dailylog_responses <- bind_rows(manual_dailylog_responses,manual_raw_dailylog[[i]])
-    }
-    merge_responses <- anti_join(manual_dailylog_responses,dailylog_responses, by = c("system_file","PromptTime"))
-    pre_filtered_dailylog <- bind_rows(dailylog_responses,merge_responses)
+                       skip_sni = FALSE, skip_manual = FALSE, fast_mode = FALSE){
+  if(!fast_mode){
+    pre_filtered_dailylog <- write_daily_responses(data_dirname = data_dirname,
+                                            wockets_dirname = wockets_dirname,
+                                            manual_dirname = manual_dirname,
+                                            skip_manual = skip_manual)
   } else {
-    pre_filtered_dailylog <- dailylog_responses
+    pre_filtered_dailylog <- read_csv(paste(data_dirname,"daily_responses.csv",sep="/"))
   }
   
   pre_filtered_dailylog <- generate_missing_column(pre_filtered_dailylog,c(
@@ -877,28 +876,16 @@ tidy_daily <- function(data_dirname, wockets_dirname,
   return(return_dailylog)
 }
 
-tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname, remove_sni = TRUE, skip_manual = FALSE, retain_names = FALSE) {
-  ema_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
-  raw_ema <- lapply(ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
-  
-  if(!skip_manual){
-    manual_ema_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
-    manual_raw_ema <- lapply(manual_ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
-  }
-  
-  ema_responses <- raw_ema[[1]]
-  for(i in 2:length(raw_ema)){
-    ema_responses <- bind_rows(ema_responses,raw_ema[[i]])
-  }
-  if(!skip_manual){
-    manual_ema_responses <- manual_raw_ema[[1]]
-    for(i in 2:length(manual_raw_ema)){
-      manual_ema_responses <- bind_rows(manual_ema_responses,manual_raw_ema[[i]])
-    }
-    merge_responses <- anti_join(manual_ema_responses,ema_responses, by = c("system_file","PromptTime"))
-    pre_filtered_ema <- bind_rows(ema_responses,merge_responses)
+tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
+                     remove_sni = TRUE, skip_manual = FALSE, 
+                     retain_names = FALSE, fast_mode = FALSE) {
+  if(!fast_mode){
+    pre_filtered_ema <- write_ema_responses(data_dirname = data_dirname,
+                                            wockets_dirname = wockets_dirname,
+                                            manual_dirname = manual_dirname,
+                                            skip_manual = skip_manual)
   } else {
-    pre_filtered_ema <- ema_responses
+    pre_filtered_ema <- read_csv(paste(data_dirname,"ema_responses.csv",sep="/"))
   }
 
   filtered_ema <- pre_filtered_ema %>%
@@ -906,7 +893,7 @@ tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname, remove_sni =
     filter(!is.na(Subject_ID)) %>%
     mutate_all(funs(ifelse(.=="question is not displayed",NA_character_,.))) %>%
     mutate_all(funs(ifelse(.=="skipped",NA_character_,.))) %>%
-    mutate(subject = substr(str_split_fixed(Subject_ID,"/", n = 7)[6],4,7)) %>%
+    mutate(subject = substr(str_split_fixed(Subject_ID,"/", n = 7)[,1],4,7)) %>%
     select(-Q0_welcome,-Q15_thankyou,-Q13_a8_drugs_type_other,-Subject_ID) %>%
     rename_at(vars(Q3_happy:Q10_hungry),funs(str_remove(.,"Q[0-9]*_"))) %>%
     mutate_at(vars(happy:hungry),funs(factor(.,levels = c("Slightly/not at all",

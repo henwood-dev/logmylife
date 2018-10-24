@@ -7,8 +7,82 @@ library(iterators)
 library(foreach)
 library(haven)
 library(tidyverse)
+library(bit64)
 
 select <- dplyr::select
+
+write_gps_logs <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE){
+  gps_files <- read_file_list(data_dirname,wockets_dirname,"data/","lml_com$","GPS.csv$")
+  pre_raw_gps_log <- rbindlist(lapply(gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = wockets_dirname), fill = TRUE)
+  
+  if(!skip_manual){
+    manual_gps_files <- read_file_list(data_dirname,manual_dirname,"data","lml_com$","GPS.csv$")
+    manual_raw_gps_log <- rbindlist(lapply(manual_gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = manual_dirname), fill = TRUE)
+    # Switching to Data.Table Paradigm for Fast GPS Processing
+    merge_manual <- anti_join(manual_raw_gps_log,pre_raw_gps_log, by = c("file_id","V1"))
+    raw_gps_log <- bind_rows(pre_raw_gps_log,merge_manual)
+  } else {
+    raw_gps_log <- pre_raw_gps_log
+  }
+  write_csv(raw_gps_log,paste(data_dirname,"gps_logs.csv", sep = "/"))
+  return(raw_gps_log)
+}
+
+
+write_daily_responses <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE){
+  dailylog_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","PromptResponses_Dailylog.csv$", hour_filter = FALSE)
+  raw_dailylog <- lapply(dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
+  
+  if(!skip_manual){
+    manual_dailylog_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","PromptResponses_Dailylog.csv$", hour_filter = FALSE)
+    manual_raw_dailylog <- lapply(manual_dailylog_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
+  }
+  
+  dailylog_responses <- raw_dailylog[[1]]
+  for(i in 2:length(raw_dailylog)){
+    dailylog_responses <- bind_rows(dailylog_responses,raw_dailylog[[i]])
+  }
+  if(!skip_manual){
+    manual_dailylog_responses <- manual_raw_dailylog[[1]]
+    for(i in 2:length(manual_raw_dailylog)){
+      manual_dailylog_responses <- bind_rows(manual_dailylog_responses,manual_raw_dailylog[[i]])
+    }
+    merge_responses <- anti_join(manual_dailylog_responses,dailylog_responses, by = c("system_file","PromptTime"))
+    pre_filtered_dailylog <- bind_rows(dailylog_responses,merge_responses)
+  } else {
+    pre_filtered_dailylog <- dailylog_responses
+  }
+  write_csv(pre_filtered_dailylog,paste(data_dirname,"daily_responses.csv", sep = "/"))
+  return(pre_filtered_dailylog)
+}
+
+write_ema_responses <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE){
+  #ids <- read_delim(paste(data_dirname,"file_ids.txt",sep = "/"), delim = ",", col_names = "id")
+  ema_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
+  raw_ema <- lapply(ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
+  
+  if(!skip_manual){
+    manual_ema_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
+    manual_raw_ema <- lapply(manual_ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
+  }
+  
+  ema_responses <- raw_ema[[1]]
+  for(i in 2:length(raw_ema)){
+    ema_responses <- bind_rows(ema_responses,raw_ema[[i]])
+  }
+  if(!skip_manual){
+    manual_ema_responses <- manual_raw_ema[[1]]
+    for(i in 2:length(manual_raw_ema)){
+      manual_ema_responses <- bind_rows(manual_ema_responses,manual_raw_ema[[i]])
+    }
+    merge_responses <- anti_join(manual_ema_responses,ema_responses, by = c("system_file","PromptTime"))
+    pre_filtered_ema <- bind_rows(ema_responses,merge_responses)
+  } else {
+    pre_filtered_ema <- ema_responses
+  }
+  write_csv(pre_filtered_ema,paste(data_dirname,"ema_responses.csv", sep = "/"))
+  return(pre_filtered_ema)
+}
 
 prebind_data <- function(filtered_data, variable_prefix, name_keys = "", name_value_pairs = "", return_name_columns = FALSE){
   if(sum(!is.na(filtered_data %>% select(!!variable_prefix))>0)){
