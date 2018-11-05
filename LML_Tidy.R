@@ -35,17 +35,23 @@ wockets_dirname <- "Wockets"
 manual_dirname <- "Manual"
 
 dummy3 <- function() {
-  ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
-  enroll <- read_csv("C:/Users/dzubur/Desktop/LML Raw Data/enroll_sheet.csv") %>%
+  data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
+  ema <- tidy_ema(data_dirname, wockets_dirname,manual_dirname,TRUE,FALSE,FALSE,TRUE)
+
+  #ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
+  #enroll_filepath <- "C:/Users/dzubur/Desktop/LML Raw Data/enroll_sheet.csv"
+  enroll_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level/enroll_sheet.csv"
+  enroll <- read_csv(enroll_filepath) %>%
     transmute(system_file = as.character(PID_master),
-              enroll = as_date(Date_PhoneSetup, format = "%m/%d/%Y", tz = ""),
+              enroll = as_date(Date_PhoneSetup, format = "%m/%d/%y", tz = ""),
               end = enroll + 8)
   ema_new <- ema %>%
     left_join(enroll, by = "system_file") %>%
     mutate(date = as_date(PromptDate, tz = ""),
            day = date - enroll + 1) %>%
     filter(date <= end & date >= enroll)
-  write_dta(ema_new,"C:/Users/dzubur/Desktop/ema_data.dta")
+  write_dta(ema_new,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Team/Sara/ema_data.dta")
+  #write_dta(ema_new,"C:/Users/dzubur/Desktop/ema_data.dta")
   
   gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
   daily <- tidy_daily(data_dirname, wockets_dirname, manual_dirname, sni_stata_filename)

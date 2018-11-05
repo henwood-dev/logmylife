@@ -232,7 +232,7 @@ tempted_where_ema <- function(filtered_ema){
     `tempted_where_Place of business (restaurant, bar, mall, etc.)` = "tempted_where_business",
     `tempted_where_Residence of someone else` = "tempted_where_otherresidence",
     `tempted_where_School or work` = "tempted_where_schoolwork",
-    `tempted_where_Social service agency (drop-in, shelter, DPSS, etc.)` = "tempted_where_service",
+    `tempted_where_Social service agency (drop-in, shelter, DPSS， etc.)` = "tempted_where_service",
     `tempted_where_Social service agency (drop-in, shelter, DPSS&#65292; etc.)` = "tempted_where_service2",
     `tempted_where_Someone else’s residence` = "tempted_where_otherresidence2"
     )
