@@ -95,11 +95,24 @@ sex_where_daily <- function(filtered_dailylog){
   new_names <- c(
     `sex_exchange_where_Hotel/motel` = "sex_exchange_where_hotel",
     `sex_exchange_where_Shelter or drop-in` = "sex_exchange_where_shelter",
-    `sex_exchange_where_Outside (park, beach)` = "sex_exchange_where_outside")
+    `sex_exchange_where_Outside (park, beach)` = "sex_exchange_where_outside",
+    `sex_exchange_where_The home of someone I know` = "sex_exchange_where_knownhome",
+    `sex_exchange_where_The home of someone I don’t know or barely know` = "sex_exchange_where_unknownhome",
+    `sex_exchange_where_Tent or improvised shelter` = "sex_exchange_where_tent",
+    `sex_exchange_where_Car, RV, or other vehicle` = "sex_exchange_where_vehicle",
+    `sex_exchange_where_Abandoned building or squat` = "sex_exchange_where_squat",
+    `sex_exchange_where_Other` = "sex_exchange_where_other"
+    )
   new_labels <- c(
       sex_exchange_where_hotel = "Hotel/motel,",
       sex_exchange_where_shelter = "Shelter or drop-in",
-      sex_exchange_where_outside = "Outside (park, beach)"
+      sex_exchange_where_outside = "Outside (park, beach)",
+      sex_exchange_where_knownhome = "The home of someone I know",
+      sex_exchange_where_unknownhome = "The home of someone I don't know or barely know",
+      sex_exchange_where_tent = "Tent or improvised shelter",
+      sex_exchange_where_vehicle = "Car, RV, or other vehicle",
+      sex_exchange_where_squat = "Abandoned building or squat",
+      sex_exchange_where_other = "Other"
     )
   return_data <- prebind_data(filtered_data, "sex_exchange_where", new_names, new_labels)
   

@@ -899,6 +899,7 @@ tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
     filter(!is.na(Subject_ID)) %>%
     mutate_all(funs(ifelse(.=="question is not displayed",NA_character_,.))) %>%
     mutate_all(funs(ifelse(.=="skipped",NA_character_,.))) %>%
+    mutate_all(funs(as_character)) %>%
     mutate(subject = substr(str_split_fixed(Subject_ID,"/", n = 7)[,1],4,7)) %>%
     select(-Q0_welcome,-Q15_thankyou,-Q13_a8_drugs_type_other,-Subject_ID) %>%
     rename_at(vars(Q3_happy:Q10_hungry),funs(str_remove(.,"Q[0-9]*_"))) %>%
