@@ -56,13 +56,13 @@ write_daily_responses <- function(data_dirname, wockets_dirname, manual_dirname 
   return(pre_filtered_dailylog)
 }
 
-write_ema_responses <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE){
+write_ema_responses <- function(data_dirname, wockets_dirname, id_varstub, filename_varstub, manual_dirname = NULL, skip_manual = TRUE, prepend_surveys = ""){
   #ids <- read_delim(paste(data_dirname,"file_ids.txt",sep = "/"), delim = ",", col_names = "id")
-  ema_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
+  ema_response_files <- read_file_list(data_dirname,wockets_dirname,paste(prepend_surveys,"surveys",sep = "/"),id_varstub,filename_varstub, hour_filter = FALSE)
   raw_ema <- lapply(ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
   
   if(!skip_manual){
-    manual_ema_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","PromptResponses_EMA.csv$", hour_filter = FALSE)
+    manual_ema_response_files <- read_file_list(data_dirname,manual_dirname,paste(prepend_surveys,"surveys",sep = "/"),id_varstub, filename_varstub, hour_filter = FALSE)
     manual_raw_ema <- lapply(manual_ema_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
   }
   
@@ -84,9 +84,9 @@ write_ema_responses <- function(data_dirname, wockets_dirname, manual_dirname = 
   return(pre_filtered_ema)
 }
 
-prebind_data <- function(filtered_data, variable_prefix, name_keys = "", name_value_pairs = "", return_name_columns = FALSE){
+prebind_data <- function(filtered_data, variable_prefix, name_keys = "", name_value_pairs = "", return_name_columns = FALSE, separator = ",|"){
   if(sum(!is.na(filtered_data %>% select(!!variable_prefix))>0)){
-    filtered_newvars <- cSplit_e(filtered_data, variable_prefix,type = "character", fill = 0, sep = ",|")
+    filtered_newvars <- cSplit_e(filtered_data, variable_prefix,type = "character", fill = 0, sep = separator)
     names(filtered_newvars) <- enc2native(names(filtered_newvars))
     selected_data <- filtered_newvars %>%
       mutate_at(vars(starts_with(paste0(variable_prefix,"_"))),funs(ifelse(is.na(eval(parse(text = variable_prefix))),NA,.))) %>%
@@ -140,7 +140,12 @@ enrollment_dates <- function(data_dirname){
   return(enrollment)
 }
 
-read_file_list <- function(data_dirname, midpoint_dirname, end_dirname, id_filter, file_filter, hour_filter = TRUE){
+read_file_list <- function(data_dirname, 
+                           midpoint_dirname, 
+                           end_dirname,
+                           id_filter, 
+                           file_filter, 
+                           hour_filter = TRUE){
   data_files <- dir(paste(data_dirname,midpoint_dirname, sep = "/"),pattern = id_filter)
   data_dirs <- paste(data_dirname,midpoint_dirname,data_files, sep = "/")
   date_files <- dir(paste(data_dirs,end_dirname, sep = "/"), full.names = TRUE)

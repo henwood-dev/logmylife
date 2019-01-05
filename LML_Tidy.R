@@ -33,6 +33,8 @@ if(.Platform$OS.type == "windows"){
 }
 wockets_dirname <- "Wockets"
 manual_dirname <- "Manual"
+id_varstub <- "lml_com$"
+filename_varstub <- "PromptResponses_EMA.csv$"
 
 dummy3 <- function() {
   data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
@@ -711,6 +713,7 @@ export_person_level <- function(data_dirname, wockets_dirname, manual_dirname,
     mutate(alcohol_bin = as.integer(alcohol) != 1,
            drugs_bin = as.integer(drugs) == 1,
            tobacco_bin = as.integer(tobacco_none) != 1,
+           tempted_bin = as.integer(tempted) != 1
            marijuana_bin = as.integer(drugs_type_marijuana)) %>%
     group_by(participant) %>%
     summarise_at(vars(ema_alcohol_events = alcohol_bin,
