@@ -97,11 +97,12 @@ prebind_data <- function(filtered_data, variable_prefix, name_keys = "", name_va
     names(selected_data) <- name_keys[names(selected_data)]
     new_return <- generate_missing_column(selected_data,get_labels(name_keys))
     return_data <- new_return %>%
-      var_labels(name_value_pairs)
+      set_label(unlist(name_value_pairs))
   } else {
     new_return <- generate_missing_column(filtered_data,get_labels(name_keys))
     return_data <- new_return %>%
-      select(starts_with(paste0(variable_prefix,"_")))
+      select(starts_with(paste0(variable_prefix,"_"))) %>%
+      set_label(unlist(name_value_pairs))
   }
   return(return_data)
 }

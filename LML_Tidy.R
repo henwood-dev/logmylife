@@ -39,6 +39,7 @@ filename_varstub <- "PromptResponses_EMA.csv$"
 dummy3 <- function() {
   data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
   ema <- tidy_ema(data_dirname, wockets_dirname,manual_dirname,TRUE,FALSE,FALSE,TRUE)
+  fast_daily <- tidy_daily(data_dirname,wockets_dirname,manual_dirname,"",TRUE,TRUE,TRUE)
 
   #ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
   #enroll_filepath <- "C:/Users/dzubur/Desktop/LML Raw Data/enroll_sheet.csv"
@@ -772,7 +773,8 @@ tidy_daily <- function(data_dirname, wockets_dirname,
                                             manual_dirname = manual_dirname,
                                             skip_manual = skip_manual)
   } else {
-    pre_filtered_dailylog <- read_csv(paste(data_dirname,"daily_responses.csv",sep="/"))
+    pre_filtered_dailylog <- read_csv(paste(data_dirname,"daily_responses.csv",sep="/")) %>%
+      mutate_all(funs(as.character))
   }
   
   pre_filtered_dailylog <- generate_missing_column(pre_filtered_dailylog,c(
@@ -877,7 +879,10 @@ tidy_daily <- function(data_dirname, wockets_dirname,
              -Q4_9_heroin,-Q4_9_a_heroin,
              -Q4_10_a_coke,-Q4_10_a_coke_type,-Q4_10_b_coke,-Q4_10_a_coke_number,
              -Q5_sex_partners,-Q5_sex_a_id,-Q7_sex_exchange,-Q7_sex_exchange_where,-Q7_sex_exchange_where_other,
-             -starts_with("R",ignore.case = FALSE)
+             -starts_with("R",ignore.case = FALSE),
+             -Q4_0_soccore, -Q4_2_b_alcohol_who, -Q4_3_b_marijuana_who, -Q4_6_b_synthmj_who,
+             -Q4_4_b_meth_who, -Q4_8_b_prescription_who, -Q4_5_b_mdma_who, -Q4_7_b_halluc_who,
+             -Q4_9_b_heroin_who, -Q4_10_c_coke_who
       )
     }
              

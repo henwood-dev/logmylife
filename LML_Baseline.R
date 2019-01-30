@@ -19,6 +19,7 @@ select <- dplyr::select
 
 # Imports
 source("LML_Tidy_Helpers.R", encoding = "UTF-8")
+source("LML_Baseline_Helpers.R", encoding = "UTF-8")
 
 
 not_all_na <- function(x) any(!is.na(x))
@@ -80,47 +81,21 @@ demographics <- function() {
                                    v5_data = v5_data,
                                    v6_data = v6_data,
                                    v7_data = v7_data)
-}
-
-birace_baseline <- function(filtered_baseline){
-  filtered_data <- rename(filtered_baseline,demo_birace = birace)
   
-  new_names <- c(
-    `demo_birace_American Indian or Alaska Native` = "demo_birace_native",
-    `demo_birace_Asian` = "demo_birace_asian",
-    `demo_birace_Black or African-American` = "demo_birace_black",
-    `demo_birace_Hispanic/Latino` = "demo_birace_hispanic",
-    `demo_birace_Native Hawaiian or other Pacific Islander` = "demo_birace_islander",
-    `demo_birace_Other (please specify)` = "demo_birace_other",
-    `demo_birace_South Asian` = "demo_birace_soasian",
-    `demo_birace_White` = "demo_birace_white"
-  )
-  new_labels <- list(
-    demo_birace_native = "Multi-racial: American Indian or Alaska Native",
-    demo_birace_asian = "Multi-racial: Asian",
-    demo_birace_black = "Multi-racial: Black or African-American",
-    demo_birace_hispanic = "Multi-racial: Hispanic or Latino",
-    demo_birace_islander = "Multi-racial: Native Hawaiian or Pacific Islander",
-    demo_birace_other = "Multi-racial: Other",
-    demo_birace_soasian = "Multi-racial: South Asian",
-    demo_birace_white = "Multi-racial: White"
-  )
-  
-  return_data <- prebind_data(filtered_data, "demo_birace", new_names, new_labels, separator = ",")
-  return(return_data)
-}
-
-factor_keep_rename <- function(var_column, level_vector){
-  original_label_name <- attributes(var_column)$label
-  factored_column <- factor(var_column, levels = level_vector)
-  attr(factored_column,"label") <- original_label_name
-  return(factored_column)
+  v2q_data <- followup_fix_errors(main_filepath,
+                                  v1_v2q_filepath = v1_v2q_filepath,
+                                  v2_v2q_filepath = v2_v2q_filepath,
+                                  v3_v2q_filepath = v3_v2q_filepath,
+                                  v4_v2q_filepath = v4_v2q_filepath,
+                                  v5_v2q_filepath = v5_v2q_filepath,
+                                  v6_v2q_filepath = v6_v2q_filepath,
+                                  v7_v2q_filepath = v7_v2q_filepath)
 }
 
 clean_baseline <- function(baseline_data){
   filtered_baseline <- baseline_data %>%
     mutate(dob = gsub("-","/",dob),
-           dob = ifelse(pid == "1011",NA_character_,dob), ## RECONCILE AGE
+           dob = ifelse(pid == "1011","07/17/1998",dob), 
            date = ifelse(pid == "1011","06/16/2017",date),
            dob = ifelse(pid == "1038",NA_character_,dob), ## RECONCILE AGE
            date = ifelse(pid == "1038","09/13/2017",date)) %>%
@@ -159,6 +134,22 @@ clean_baseline <- function(baseline_data){
            demo_sex_min = ifelse(sexori == "Another sexual orientation (please state):" | is.na(sexori),"Unknown",demo_sex_min)) %>%
     mutate(demo_sex_gender_min = ifelse(demo_sex_min == "Yes" | demo_gendercis == "No","Yes","No"),
            demo_sex_gender_min = ifelse((demo_sex_min == "Unknown" | demo_gendercis == "Unknown") & demo_sex_gender_min == "No","Unknown",demo_sex_gender_min)) %>%
+    mutate_at(vars(starts_with("ucla_ptsd_")), funs(factor_keep_rename_yn(.))) %>%
+    mutate_at(vars(starts_with("mh_dx_")), funs(factor_keep_rename_yn(.))) %>%
+    mutate_at(vars(mh_current), funs(factor_keep_rename(., level_vector = c("Not at all",
+                                                                            "Somewhat",
+                                                                            "A little bit",
+                                                                            "Quite a bit",
+                                                                            "Very much")))) %>%
+    mutate_at(vars(gad7_1,gad7_2,gad7_3,gad7_4,gad7_5,gad7_6,gad7_7), funs(factor_keep_rename(., level_vector = 
+                                                                                                c("Not at all",
+                                                                                                  "Several days",
+                                                                                                  "Over half the days",
+                                                                                                  "Nearly every day")))) %>%
+    mutate_at(vars(gad7_8), funs(factor_keep_rename(., level_vector = c("Not difficult at all",
+                                                                        "Somewhat difficult",
+                                                                        "Very difficult",
+                                                                        "Extremely difficult")))) %>%
     mutate_at(vars(starts_with("giscale_")), funs(factor_keep_rename(., level_vector = c("Strongly Agree (1)",
                                                                                          "Agree (2)",
                                                                                          "Mixed Feelings (3)",
@@ -168,13 +159,49 @@ clean_baseline <- function(baseline_data){
                                                                                                 "A little",
                                                                                                 "More than a little",
                                                                                                 "A lot")))) %>%
+    mutate_at(vars(starts_with("phq9_")), funs(factor_keep_rename(., level_vector = c("Not at all",
+                                                                                      "Several days",
+                                                                                      "More than half the days",
+                                                                                      "Nearly every day")))) %>%
+    mutate_at(vars(starts_with("ders_sf_")), funs(gsub("\n","",.))) %>%
+    mutate_at(vars(starts_with("ders_sf_")), funs(tolower(.))) %>%
+    mutate_at(vars(starts_with("ders_sf_")), funs(factor_keep_rename(., level_vector = c("almost never(0-10%)",
+                                                                                         "sometimes(11-35%)",
+                                                                                         "about half of the time(36-65%)",
+                                                                                         "most of the time(66-90%)",
+                                                                                         "almost always(91-100%)")))) %>%
+    mutate(scale_hfias_1 = ifelse(hfias_1 == "Yes",hfias_1_a,"No"),
+           scale_hfias_2 = ifelse(hfias_2 == "Yes",hfias_2_a,"No"),
+           scale_hfias_3 = ifelse(hfias_3 == "Yes",hfias_3_a,"No"),
+           scale_hfias_4 = ifelse(hfias_4 == "Yes",hfias_4_a,"No"),
+           scale_hfias_5 = ifelse(hfias_5 == "Yes",hfias_5_a,"No"),
+           scale_hfias_6 = ifelse(hfias_6 == "Yes",hfias_6_a,"No"),
+           scale_hfias_7 = ifelse(hfias_7 == "Yes",hfias_7_a,"No"),
+           scale_hfias_8 = ifelse(hfias_8 == "Yes",hfias_8_a,"No"),
+           scale_hfias_9 = ifelse(hfias_9 == "Yes",hfias_9_a,"No")) %>% 
+    mutate_at(vars(starts_with("scale_hfias_")), funs(factor_keep_rename(., level_vector = c("No",
+                                                                                       "Rarely (once or twice in the past 30 days)",
+                                                                                       "Sometimes (three to ten times in the past 30 days)",
+                                                                                       "Often (more than ten times in the past 30 days)")))) %>%
     bind_cols(birace_baseline(.)) %>%
-    select(-duration_in_seconds,-date,-survey_type,-site_unhoused_77_text,-site_housed_77_text,-consent,
-           -dob,-hisp,-site_housed,-site_unhoused,-birace,-starts_with("research_")) %>%
+    bind_cols(gender_baseline(.)) %>%
+    bind_cols(prep_where_baseline(.)) %>%
+    bind_cols(prep_social_baseline(.)) %>%
+    bind_cols(prep_barrier_baseline(.)) %>%
+    bind_cols(sex3mo_describe_baseline(.)) %>%
+    bind_cols(sex3mo_gender_baseline(.)) %>%
+    bind_cols(sex3mo_type_baseline(.)) %>%
+    bind_cols(sex3mo_cntrcptv_baseline(.)) %>%
+    bind_cols(sex3mo_extype_baseline(.)) %>%
+    bind_cols(sti_pos_baseline(.)) %>%
+    select(-gender,-duration_in_seconds,-date,-survey_type,-site_unhoused_77_text,-site_housed_77_text,-consent,
+           -dob,-hisp,-site_housed,-site_unhoused,-birace,-starts_with("research_"),-starts_with("hfias_"),
+           -prep_whereleard,-prep_social_who,-prep_barriers,-describe_3mopartner,-`3mosex_partgndr`,
+           -`3mosex_types`,-`3mosex_cntrcptv`,-exchsex_types,-sti_pos,-q523) %>%
     rename(baseline_id = responseid,
-           demo_birace_other_text = birace_8_text)
+           demo_birace_text = birace_8_text)
  
-  old_names<- c("race","race_8_text","inschool","inschool_type","inschool_type_4_text","educ","sex","gender","gender_6_text",
+  old_names<- c("race","race_8_text","inschool","inschool_type","inschool_type_4_text","educ","sex","gender_6_text",
                 "sexori","sexori_6_text","sexattr_formales",
                 "giscale_1","giscale_2","giscale_3","giscale_4","giscale_5","giscale_6","giscale_7",
                 "romrel_marr","romrel_curr","romrel_ptnrs","romrel_ptnrsgndr","romrel_dur","romrel_sex",
@@ -186,9 +213,33 @@ clean_baseline <- function(baseline_data){
                 "stress_streets_6","stress_streets_7","stress_streets_8","stress_streets_9","stress_streets_10",
                 "stress_streets_11","stress_streets_12","stress_streets_13","stress_streets_14","stress_streets_15",
                 "mse_talkto","mse_housingopts","mse_progengage","mse_progengage_10_text","mse_drop_inaccess",
-                "mse_shelteraccess","mse_txaccess")
+                "mse_shelteraccess","mse_txaccess","mse_rel_prov",
+                "phq9_1","phq9_2","phq9_3","phq9_4","phq9_5","phq9_6","phq9_7","phq9_8","phq9_9",
+                "prep_whereleard_9_text","prep_know","prep_social","prep_rx_ever","prep_currentlytaking","prep_interest","prep_barriers_9_text",
+                "lifesex_beh","lifesex_partnum","3mosex_partgndr_6_text",
+                "3mosex_partnum","3mosex_partbiosex","3mosex_condomfreq",
+                "3mosex_cntrcptv_8_text","3mosex_cntrcptv_fam","3mosex_cntrcptv_plan",
+                "3mosex_suifreq","3mosex_hivconvo","exchsex_3mo",
+                "exchsex_3mo_forced","forcedsex_3mo","forcedsexattempt_3mo",
+                "hiv_st","hivp_when","hivp_testloc","hivp_ptcounsel","hivp_tx", 
+                "hivp_tx_why", "hivp_meds","hivp_meds_whynot","hivn_lasttest",
+                "hivn_testloc","hivn_testloc_9_text","hivn_gotresult","hivn_ptcounsel",
+                "sti_last",  "sti_pos_7_text","chlam_pos_last",
+                "gono_pos_last","syph_pos_last","herp_pos_last","hpv_pos_last",
+                "hepb_pos_last","other_pos_last","hcv_lasttest","hcv_status",
+                "hcv_tx","preg_freq","preg_unplan","preg_child",
+                "preg_live",
+                "ucla_ptsd_disaster", "ucla_ptsd_accident", "ucla_ptsd_commvict",
+                "ucla_ptsd_familyvict", "ucla_ptsd_war", "ucla_ptsd_commwit", "ucla_ptsd_injury",
+                "ucla_ptsd_physabuse", "ucla_ptsd_deadbody", "ucla_ptsd_forcedsex", "ucla_ptsd_witness",
+                "ucla_ptsd_sexabuse", "ucla_ptsd_death",
+                "gad7_1", "gad7_2", "gad7_3", "gad7_4", "gad7_5", "gad7_6", "gad7_7", "gad7_8",
+                "ders_sf_1", "ders_sf_2", "ders_sf_3", "ders_sf_4", "ders_sf_5", "ders_sf_6",
+                "ders_sf_7", "ders_sf_8", "ders_sf_9", "ders_sf_10", "ders_sf_11", "ders_sf_12",
+                "ders_sf_13", "ders_sf_14", "ders_sf_15", "ders_sf_16", "ders_sf_17", "ders_sf_18"
+                )
   new_names <- c("demo_race","demo_race_other","demo_school","demo_school_type","demo_school_other","demo_education","demo_sex",
-                 "demo_gender","demo_gender_other","demo_sex_ori","demo_sex_ori_other","demo_sex_attr",
+                 "demo_gender_text","demo_sex_ori","demo_sex_ori_other","demo_sex_attr",
                  "scale_gay_identity_1","scale_gay_identity_2","scale_gay_identity_3","scale_gay_identity_4","scale_gay_identity_5",
                  "scale_gay_identity_6","scale_gay_identity_7",
                  "history_romance_married","history_romance_current","history_romance_partners","history_romance_partners_gender",
@@ -203,11 +254,54 @@ clean_baseline <- function(baseline_data){
                  "scale_stress_streets_6","scale_stress_streets_7","scale_stress_streets_8","scale_stress_streets_9","scale_stress_streets_10",
                  "scale_stress_streets_11","scale_stress_streets_12","scale_stress_streets_13","scale_stress_streets_14","scale_stress_streets_15",
                  "survey_mse_talking","survey_mse_housing","survey_mse_engage","survey_mse_engage_other","survey_mse_dropin",
-                 "survey_mse_shelter","survey_mse_treatment")
+                 "survey_mse_shelter","survey_mse_treatment","survey_mse_relationship",
+                 "scale_phq9_1","scale_phq9_2","scale_phq9_3","scale_phq9_4","scale_phq9_5",
+                 "scale_phq9_6","scale_phq9_7","scale_phq9_8","scale_phq9_9",
+                 "survey_prep_where_text","survey_prep_know","survey_prep_social","survey_prep_rx_ever","survey_prep_rx_current",
+                 "survey_prep_interest","survey_prep_barrier_text",
+                 "survey_sexlife_gender","survey_sexlife_count","survey_sex3mo_gender_text",
+                 "survey_sex3mo_count","survey_sex3mo_biosex","survey_sex3mo_condom",
+                 "survey_sex3mo_cntrcptv_text","survey_sex3mo_cntrcptv_app","survey_sex3mo_cntrcptv_plan",
+                 "survey_sex3mo_suifreq","survey_sex3mo_hivtalk","survey_sex3mo_exchange",
+                 "survey_sex3mo_exforced","survey_sex3mo_forced","survey_sex3mo_attemptforce",
+                 "survey_hiv_posyes","survey_hiv_poswhen","survey_hiv_postestloc","survey_hiv_poscounsel","survey_hiv_postx", 
+                 "survey_hiv_postx_why", "survey_hiv_posmeds","survey_hiv_posmeds_whynot","survey_hiv_negwhen",
+                 "survey_hiv_negtestloc","survey_hiv_negtestloc_text","survey_hiv_negresult","survey_hiv_negcounsel",
+                 "survey_sti_when",  "survey_sti_pos_text","survey_sti_chlam_when",
+                 "survey_sti_gono_when","survey_sti_syph_when","survey_sti_herp_when","survey_sti_hpv_when",
+                 "survey_sti_hepb_when","survey_sti_other_when","survey_sti_hcv_when","survey_sti_hcv_status",
+                 "survey_sti_hcv_tx","survey_preg_freq","survey_preg_unplan_freq","survey_preg_children",
+                 "survey_preg_livewith",
+                 "scale_ucla_ptsd_disaster", "scale_ucla_ptsd_accident", "scale_ucla_ptsd_commvict", 
+                 "scale_ucla_ptsd_familyvict", "scale_ucla_ptsd_war", "scale_ucla_ptsd_commwit", 
+                 "scale_ucla_ptsd_injury", "scale_ucla_ptsd_physabuse", "scale_ucla_ptsd_deadbody", 
+                 "scale_ucla_ptsd_forcedsex", "scale_ucla_ptsd_witness", "scale_ucla_ptsd_sexabuse", 
+                 "scale_ucla_ptsd_death",
+                 "scale_gad7_1", "scale_gad7_2", "scale_gad7_3", "scale_gad7_4", "scale_gad7_5", 
+                 "scale_gad7_6", "scale_gad7_7", "scale_gad7_8",
+                 "scale_ders_sf_1", "scale_ders_sf_2", "scale_ders_sf_3", "scale_ders_sf_4",
+                 "scale_ders_sf_5", "scale_ders_sf_6", "scale_ders_sf_7", "scale_ders_sf_8",
+                 "scale_ders_sf_9", "scale_ders_sf_10", "scale_ders_sf_11", "scale_ders_sf_12",
+                 "scale_ders_sf_13", "scale_ders_sf_14", "scale_ders_sf_15", "scale_ders_sf_16",
+                 "scale_ders_sf_17", "scale_ders_sf_18")
   setnames(filtered_baseline,old_names,new_names)
   
-  
-  
+  # 
+  # "lifesex_beh"                  
+  # [93] "lifesex_partnum"                               
+  # [97]                  "3mosex_partnum"                "3mosex_partbiosex"             "3mosex_condomfreq"            
+  # [101]                       "3mosex_cntrcptv_fam"           "3mosex_cntrcptv_plan"         
+  # [105] "3mosex_suifreq"                "3mosex_hivconvo"               "exchsex_3mo"                               
+  # [109] "exchsex_3mo_forced"            "forcedsex_3mo"                 "forcedsexattempt_3mo"
+  # 
+  # "hiv_st","hivp_when","hivp_testloc","hivp_ptcounsel","hivp_tx", 
+  # "hivp_tx_why", "hivp_meds","hivp_meds_whynot","hivn_lasttest",
+  # "hivn_testloc","hivn_testloc_9_text","hivn_gotresult","hivn_ptcounsel",
+  # "sti_last", "sti_pos",  "sti_pos_7_text","chlam_pos_last",
+  # "gono_pos_last","syph_pos_last","herp_pos_last","hpv_pos_last",
+  # "hepb_pos_last","other_pos_last","hcv_lasttest","hcv_status",
+  # "hcv_tx","preg_freq","preg_unplan","preg_child",
+  # "preg_live"
   
   ## VARS PRESERVED
   # site_housed
@@ -217,7 +311,18 @@ clean_baseline <- function(baseline_data){
   attr(filtered_baseline$baseline_survey,"label") <- attributes(baseline_data$survey_type)$label
   attr(filtered_baseline$baseline_site_housed,"label") <- attributes(baseline_data$site_housed)$label
   attr(filtered_baseline$baseline_site_unhoused,"label") <- attributes(baseline_data$site_unhoused)$label
-  attr(filtered_baseline$demo_birace_other_text,"label") <- "Multi-Racial: Other Text Entry"
+  
+  attr(filtered_baseline$scale_hfias_1,"label") <- attributes(baseline_data$hfias_1)$label
+  attr(filtered_baseline$scale_hfias_2,"label") <- attributes(baseline_data$hfias_2)$label
+  attr(filtered_baseline$scale_hfias_3,"label") <- attributes(baseline_data$hfias_3)$label
+  attr(filtered_baseline$scale_hfias_4,"label") <- attributes(baseline_data$hfias_4)$label
+  attr(filtered_baseline$scale_hfias_5,"label") <- attributes(baseline_data$hfias_5)$label
+  attr(filtered_baseline$scale_hfias_6,"label") <- attributes(baseline_data$hfias_6)$label
+  attr(filtered_baseline$scale_hfias_7,"label") <- attributes(baseline_data$hfias_7)$label
+  attr(filtered_baseline$scale_hfias_8,"label") <- attributes(baseline_data$hfias_8)$label
+  attr(filtered_baseline$scale_hfias_9,"label") <- attributes(baseline_data$hfias_9)$label
+  
+  attr(filtered_baseline$demo_birace_text,"label") <- "Multi-Racial: Other Text Entry"
   attr(filtered_baseline$demo_sex_gender_min,"label") <- "Is the partcipant a sexual or gender minority?"
   attr(filtered_baseline$demo_sex_min,"label") <- "Is the partcipant a sexual identity minority? (Not Heterosexual)"
   attr(filtered_baseline$demo_gendercis,"label") <- "Is the participant cis-gendered?"
@@ -230,7 +335,14 @@ clean_baseline <- function(baseline_data){
   attr(filtered_baseline$baseline_version,"label") <- "Baseline survey version"
   attr(filtered_baseline$baseline_id,"label") <- "Baseline survery respone id"
   
-  names(select(filtered_baseline,-starts_with("demo"),-starts_with("baseline"),-starts_with("scale"),-starts_with("history")))
+  names(select(filtered_baseline,-starts_with("demo"),-starts_with("baseline"),
+               -starts_with("scale"),-starts_with("history"),-starts_with("survey"),-starts_with("sni")))
+  
+  #test <- select(filtered_baseline,pid,starts_with("survey_prep_"),starts_with("demo_"),
+  #               starts_with("survey_hiv_"),starts_with("survey_sti_"),starts_with("survey_sexlife_"),
+  #               starts_with("survey_preg_"),starts_with("survey_sex3mo_"))
+  
+  names(select(filtered_baseline,one_of(c("prep_know","prep_whereleard","prep_whereleard_9_text","prep_social","prep_social_who","prep_rx_ever","prep_currentlytaking","prep_interest","prep_barriers","prep_barriers_9_text"))))
 }
 
 followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v3_v2q_filepath,
