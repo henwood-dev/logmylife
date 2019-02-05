@@ -20,6 +20,351 @@ select <- dplyr::select
 # Imports
 source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 
+healthcare_access_needs <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,healthcare_access_needs = `healthneeds`) 
+  variable_prefix <- "healthcare_access_needs"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `healthcare_access_needs_Chronic pain management/care` = "healthcare_access_needs_pain",
+    `healthcare_access_needs_Hearing/auditory healthcare` = "healthcare_access_needs_hearing",
+    `healthcare_access_needs_I've had access to all types of healthcare that I needed in the past year` = "healthcare_access_needs_none",
+    `healthcare_access_needs_Oral/dental` = "healthcare_access_needs_dental",
+    `healthcare_access_needs_Other (please specify)` = "healthcare_access_needs_other",
+    `healthcare_access_needs_Physical therapy or rehabilitation` = "healthcare_access_needs_ptrehab",
+    `healthcare_access_needs_Preventative healthcare/primary care` = "healthcare_access_needs_primary",
+    `healthcare_access_needs_Sexual/reproductive health care` = "healthcare_access_needs_sexrepro",
+    `healthcare_access_needs_Sleep health care` = "healthcare_access_needs_sleep",
+    `healthcare_access_needs_Vision` = "healthcare_access_needs_vision",
+    `healthcare_access_needs_Weight management` = "healthcare_access_needs_weight"
+  )
+  new_labels <- list(
+    healthcare_access_needs_pain = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Chronic pain management or care",
+    healthcare_access_needs_hearing = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Hearing or auditory healthcare",
+    healthcare_access_needs_none = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: I've had access to all types of healthcare that I needed",
+    healthcare_access_needs_dental = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Oral or dental",
+    healthcare_access_needs_other = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Other",
+    healthcare_access_needs_ptrehab = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Physical therapy or rehab",
+    healthcare_access_needs_primary = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Preventative healthcare or primary care",
+    healthcare_access_needs_sexrepro = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Sexual or reproductive health care",
+    healthcare_access_needs_sleep = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Sleep health care",
+    healthcare_access_needs_vision = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Vision",
+    healthcare_access_needs_weight = "In the past year, have you felt that you needed to but were unable to access any of the following types of health care?: Weight management"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+livsit_current_baseline <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,unhoused_livsit_now = `uh_livsit_curr`) %>%
+    mutate(unhoused_livsit_now = gsub(', park',' park',unhoused_livsit_now)) %>%
+    mutate(unhoused_livsit_now = gsub(', beach',' beach',unhoused_livsit_now)) %>%
+    mutate(unhoused_livsit_now = gsub(', or',' or',unhoused_livsit_now)) %>%
+    mutate(unhoused_livsit_now = gsub(', bus',' bus',unhoused_livsit_now)) %>%
+    mutate(unhoused_livsit_now = gsub(', light',' light',unhoused_livsit_now))
+  variable_prefix <- "unhoused_livsit_now"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `unhoused_livsit_now_Abandoned building or squat` = "unhoused_livsit_now_squat",
+    `unhoused_livsit_now_Adult emergency/temporary shelter (less than 30 days)` = "unhoused_livsit_now_shortshelter",
+    `unhoused_livsit_now_Adult longer-term shelter (more than 30 days)` = "unhoused_livsit_now_longshelter",
+    `unhoused_livsit_now_Car bus light rail or metro` = "unhoused_livsit_now_transit",
+    `unhoused_livsit_now_Family home` = "unhoused_livsit_now_familyhome",
+    #`unhoused_livsit_now_Foster family home` = "unhoused_livsit_now_fosterhome",
+    `unhoused_livsit_now_Friend's home` = "unhoused_livsit_now_friendhome",
+    #`unhoused_livsit_now_Group home` = "unhoused_livsit_now_grouphome",
+    `unhoused_livsit_now_Home of boyfriend/girlfriend/person I'm having sex with` = "unhoused_livsit_now_relationhome",
+    #`unhoused_livsit_now_Home of someone I do not know or barely know` = "unhoused_livsit_now_strangerhome",
+    #`unhoused_livsit_now_Hotel/motel` = "unhoused_livsit_now_hotel",
+    #`unhoused_livsit_now_Juvenile detention center or jail` = "unhoused_livsit_now_jail",
+    `unhoused_livsit_now_Other (please specify)` = "unhoused_livsit_now_other",
+    #`unhoused_livsit_now_Own apartment` = "unhoused_livsit_now_ownapt",
+    #`unhoused_livsit_now_Permanent supportive housing/supportive housing program` = "unhoused_livsit_now_psh",
+    #`unhoused_livsit_now_Relative's home` = "unhoused_livsit_now_relativehome",
+    #`unhoused_livsit_now_Sober living facility` = "unhoused_livsit_now_sober",
+    `unhoused_livsit_now_Street park beach or outside` = "unhoused_livsit_now_outdoors",
+    `unhoused_livsit_now_Transitional living program (TLP)` = "unhoused_livsit_now_tlp",
+    `unhoused_livsit_now_Youth-only emergency/temporary shelter (less than 30 days)` = "unhoused_livsit_now_youthshortshelter",
+    `unhoused_livsit_now_Youth-only longer-term shelter (more than 30 days)` = "unhoused_livsit_now_youthlongshelter"
+  )
+  new_labels <- list(
+    unhoused_livsit_now_squat = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Abandoned building or squat",
+    unhoused_livsit_now_shortshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Adult emergency shelter (less than 30 days)",
+    unhoused_livsit_now_longshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Adult longer term shelter (more than 30 days)",
+    unhoused_livsit_now_transit = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Car bus light rail or metro",
+    unhoused_livsit_now_familyhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Family home",
+    #unhoused_livsit_now_fosterhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : foster family home",
+    unhoused_livsit_now_friendhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : friends home",
+    #unhoused_livsit_now_grouphome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : group home",
+    unhoused_livsit_now_relationhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of boyfriend/girlfriend/person I am having sex with",
+    #unhoused_livsit_now_strangerhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of someone I do not know",
+    #unhoused_livsit_now_hotel = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : hotel or motel",
+    #unhoused_livsit_now_jail = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : juvenile detention center or jail",
+    unhoused_livsit_now_other = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : other",
+    #unhoused_livsit_now_ownapt = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : own apartment",
+    #unhoused_livsit_now_psh = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : PSH housing program",
+    #unhoused_livsit_now_relativehome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : relatives home",
+    #unhoused_livsit_now_sober = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : sober living facility",
+    unhoused_livsit_now_outdoors = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : street park beach or outside",
+    unhoused_livsit_now_tlp = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : TLP program",
+    unhoused_livsit_now_youthshortshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Youth emergency shelter (less than 30 days)",
+    unhoused_livsit_now_youthlongshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Youth longer-term shelter (more than 30 days)"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+livsit_3mo_baseline <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,unhoused_livsit_3mo = `uh_livsit_3mo`) %>%
+    mutate(unhoused_livsit_3mo = gsub(', park',' park',unhoused_livsit_3mo)) %>%
+    mutate(unhoused_livsit_3mo = gsub(', beach',' beach',unhoused_livsit_3mo)) %>%
+    mutate(unhoused_livsit_3mo = gsub(', or',' or',unhoused_livsit_3mo)) %>%
+    mutate(unhoused_livsit_3mo = gsub(', bus',' bus',unhoused_livsit_3mo)) %>%
+    mutate(unhoused_livsit_3mo = gsub(', light',' light',unhoused_livsit_3mo))
+  variable_prefix <- "unhoused_livsit_3mo"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `unhoused_livsit_3mo_Abandoned building or squat` = "unhoused_livsit_3mo_squat",
+    `unhoused_livsit_3mo_Adult emergency/temporary shelter (less than 30 days)` = "unhoused_livsit_3mo_shortshelter",
+    `unhoused_livsit_3mo_Adult longer-term shelter (more than 30 days)` = "unhoused_livsit_3mo_longshelter",
+    `unhoused_livsit_3mo_Car bus light rail or metro` = "unhoused_livsit_3mo_transit",
+    `unhoused_livsit_3mo_Family home` = "unhoused_livsit_3mo_familyhome",
+    `unhoused_livsit_3mo_Foster family home` = "unhoused_livsit_3mo_fosterhome",
+    `unhoused_livsit_3mo_Friend's home` = "unhoused_livsit_3mo_friendhome",
+    #`unhoused_livsit_3mo_Group home` = "unhoused_livsit_3mo_grouphome",
+    `unhoused_livsit_3mo_Home of boyfriend/girlfriend/person I'm having sex with` = "unhoused_livsit_3mo_relationhome",
+    `unhoused_livsit_3mo_Home of someone I do not know or barely know` = "unhoused_livsit_3mo_strangerhome",
+    `unhoused_livsit_3mo_Hotel/motel` = "unhoused_livsit_3mo_hotel",
+    `unhoused_livsit_3mo_Juvenile detention center or jail` = "unhoused_livsit_3mo_jail",
+    `unhoused_livsit_3mo_Other (please specify)` = "unhoused_livsit_3mo_other",
+    `unhoused_livsit_3mo_Own apartment` = "unhoused_livsit_3mo_ownapt",
+    `unhoused_livsit_3mo_Permanent supportive housing/supportive housing program` = "unhoused_livsit_3mo_psh",
+    `unhoused_livsit_3mo_Relative's home` = "unhoused_livsit_3mo_relativehome",
+    `unhoused_livsit_3mo_Sober living facility` = "unhoused_livsit_3mo_sober",
+    `unhoused_livsit_3mo_Street park beach or outside` = "unhoused_livsit_3mo_outdoors",
+    `unhoused_livsit_3mo_Transitional living program (TLP)` = "unhoused_livsit_3mo_tlp",
+    `unhoused_livsit_3mo_Youth-only emergency/temporary shelter (less than 30 days)` = "unhoused_livsit_3mo_youthshortshelter",
+    `unhoused_livsit_3mo_Youth-only longer-term shelter (more than 30 days)` = "unhoused_livsit_3mo_youthlongshelter"
+  )
+  new_labels <- list(
+    unhoused_livsit_3mo_squat = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Abandoned building or squat",
+    unhoused_livsit_3mo_shortshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Adult emergency shelter (less than 30 days)",
+    unhoused_livsit_3mo_longshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Adult longer term shelter (more than 30 days)",
+    unhoused_livsit_3mo_transit = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Car bus light rail or metro",
+    unhoused_livsit_3mo_familyhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Family home",
+    unhoused_livsit_3mo_fosterhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : foster family home",
+    unhoused_livsit_3mo_friendhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : friends home",
+    #unhoused_livsit_3mo_grouphome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : group home",
+    unhoused_livsit_3mo_relationhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of boyfriend/girlfriend/person I am having sex with",
+    unhoused_livsit_3mo_strangerhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of someone I do not know",
+    unhoused_livsit_3mo_hotel = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : hotel or motel",
+    unhoused_livsit_3mo_jail = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : juvenile detention center or jail",
+    unhoused_livsit_3mo_other = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : other",
+    unhoused_livsit_3mo_ownapt = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : own apartment",
+    unhoused_livsit_3mo_psh = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : PSH housing program",
+    unhoused_livsit_3mo_relativehome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : relatives home",
+    unhoused_livsit_3mo_sober = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : sober living facility",
+    unhoused_livsit_3mo_outdoors = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : street park beach or outside",
+    unhoused_livsit_3mo_tlp = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : TLP program",
+    unhoused_livsit_3mo_youthshortshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Youth emergency shelter (less than 30 days)",
+    unhoused_livsit_3mo_youthlongshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Youth longer-term shelter (more than 30 days)"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+house_progs_baseline <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_house_progs = `housingprogs_ever`) %>%
+    mutate(history_house_progs = gsub(', park',' park',history_house_progs)) %>%
+    mutate(history_house_progs = gsub(', beach',' beach',history_house_progs)) %>%
+    mutate(history_house_progs = gsub(', or',' or',history_house_progs)) %>%
+    mutate(history_house_progs = gsub(', bus',' bus',history_house_progs)) %>%
+    mutate(history_house_progs = gsub(', light',' light',history_house_progs))
+  variable_prefix <- "history_house_progs"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_house_progs_Abandoned building or squat` = "history_house_progs_squat",
+    `history_house_progs_Adult emergency/temporary shelter (less than 30 days)` = "history_house_progs_shortshelter",
+    `history_house_progs_Adult longer-term shelter (more than 30 days)` = "history_house_progs_longshelter",
+    `history_house_progs_Car bus light rail or metro` = "history_house_progs_transit",
+    `history_house_progs_Family home` = "history_house_progs_familyhome",
+    `history_house_progs_Foster family home` = "history_house_progs_fosterhome",
+    `history_house_progs_Friend's home` = "history_house_progs_friendhome",
+    `history_house_progs_Group home` = "history_house_progs_grouphome",
+    `history_house_progs_Home of boyfriend/girlfriend/person I'm having sex with` = "history_house_progs_relationhome",
+    `history_house_progs_Home of someone I do not know or barely know` = "history_house_progs_strangerhome",
+    `history_house_progs_Hotel/motel` = "history_house_progs_hotel",
+    `history_house_progs_Juvenile detention center or jail` = "history_house_progs_jail",
+    `history_house_progs_Other (please specify)` = "history_house_progs_other",
+    `history_house_progs_Own apartment` = "history_house_progs_ownapt",
+    `history_house_progs_Permanent supportive housing/supportive housing program` = "history_house_progs_psh",
+    `history_house_progs_Relative's home` = "history_house_progs_relativehome",
+    `history_house_progs_Sober living facility` = "history_house_progs_sober",
+    `history_house_progs_Street park beach or outside` = "history_house_progs_outdoors",
+    `history_house_progs_Transitional living program (TLP)` = "history_house_progs_tlp",
+    `history_house_progs_Youth-only emergency/temporary shelter (less than 30 days)` = "history_house_progs_youthshortshelter",
+    `history_house_progs_Youth-only longer-term shelter (more than 30 days)` = "history_house_progs_youthlongshelter"
+  )
+  new_labels <- list(
+    history_house_progs_squat = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: Abandoned building or squat",
+    history_house_progs_shortshelter = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: Adult emergency shelter (less than 30 days)",
+    history_house_progs_longshelter = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: Adult longer term shelter (more than 30 days)",
+    history_house_progs_transit = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: Car bus light rail or metro",
+    history_house_progs_familyhome = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: Family home",
+    history_house_progs_fosterhome = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: foster family home",
+    history_house_progs_friendhome = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: friends home",
+    history_house_progs_grouphome = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: group home",
+    history_house_progs_relationhome = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: home of boyfriend/girlfriend/person I am having sex with",
+    history_house_progs_strangerhome = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: home of someone I do not know",
+    history_house_progs_hotel = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: hotel or motel",
+    history_house_progs_jail = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: juvenile detention center or jail",
+    history_house_progs_other = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: other",
+    history_house_progs_ownapt = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: own apartment",
+    history_house_progs_psh = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: PSH housing program",
+    history_house_progs_relativehome = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: relatives home",
+    history_house_progs_sober = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: sober living facility",
+    history_house_progs_outdoors = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: street park beach or outside",
+    history_house_progs_tlp = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: TLP program",
+    history_house_progs_youthshortshelter = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: Youth emergency shelter (less than 30 days)",
+    history_house_progs_youthlongshelter = "Since the first time you became unstably housed/homeless, which of the following types of living situations/housing programs have you lived in?: Youth longer-term shelter (more than 30 days)"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+homeless_why_baseline <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_homeless_why = `reasonhomeless`)
+  variable_prefix <- "history_homeless_why"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_homeless_why_I aged out of the foster care system` = "history_homeless_why_aged",
+    `history_homeless_why_I couldn't pay rent` = "history_homeless_why_rent",
+    `history_homeless_why_I had no place to go when I got out of jail/prison` = "history_homeless_why_jail",
+    `history_homeless_why_I had no place to go when I got out of the hospital` = "history_homeless_why_hospital",
+    `history_homeless_why_I had no place to stay when I moved here` = "history_homeless_why_transient",
+    `history_homeless_why_I left a gang or a neighborhood with gang violence` = "history_homeless_why_gang",
+    `history_homeless_why_I left a situation of domestic violence` = "history_homeless_why_violence",
+    `history_homeless_why_I ran away from my family home` = "history_homeless_why_ranfamily",
+    `history_homeless_why_I ran away from my foster family home` = "history_homeless_why_ranfoster",
+    `history_homeless_why_I ran away from my group home` = "history_homeless_why_rangroup",
+    `history_homeless_why_I ran away from my relative's home` = "history_homeless_why_ranrelative",
+    `history_homeless_why_I was kicked out/asked to leave my family home` = "history_homeless_why_kickfamily",
+    `history_homeless_why_I was kicked out/asked to leave my foster home` = "history_homeless_why_kickfoster",
+    `history_homeless_why_I was kicked out/asked to leave my group home` = "history_homeless_why_kickgroup",
+    `history_homeless_why_I was kicked out/asked to leave my relative's home` = "history_homeless_why_kickrelative",
+    `history_homeless_why_My family does not have a stable place to stay` = "history_homeless_why_nofamilyhome",
+    `history_homeless_why_Other (please specify)` = "history_homeless_why_other"
+  )
+  new_labels <- list(
+    history_homeless_why_aged = "How did you become unstably housed or homeless?: I aged out of the foster care system",
+    history_homeless_why_rent = "How did you become unstably housed or homeless?: I couldn't pay rent",
+    history_homeless_why_jail = "How did you become unstably housed or homeless?: I had no place to go when I got out of jail",
+    history_homeless_why_hospital = "How did you become unstably housed or homeless?: I had no place to go when I got out of the hospital",
+    history_homeless_why_transient = "How did you become unstably housed or homeless?: I had no place to stay when I moved here",
+    history_homeless_why_gang = "How did you become unstably housed or homeless?: I left a gang or neighborhoood with gang violence",
+    history_homeless_why_violence = "How did you become unstably housed or homeless?: I left a situation of domestic violence",
+    history_homeless_why_ranfamily = "How did you become unstably housed or homeless?: I ran away from my family home",
+    history_homeless_why_ranfoster = "How did you become unstably housed or homeless?: I ran away from my foster family home",
+    history_homeless_why_rangroup = "How did you become unstably housed or homeless?: I ran away from my group home",
+    history_homeless_why_ranrelative = "How did you become unstably housed or homeless?: I ran away from my relatives home",
+    history_homeless_why_kickfamily = "How did you become unstably housed or homeless?: I was kicked out or asked to leave family home",
+    history_homeless_why_kickfoster = "How did you become unstably housed or homeless?: I was kicked out or asked to leave foster home",
+    history_homeless_why_kickgroup = "How did you become unstably housed or homeless?: I was kicked out or asked to leave group home",
+    history_homeless_why_kickrelative = "How did you become unstably housed or homeless?: I was kicked out or asked ot leave relatives home",
+    history_homeless_why_nofamilyhome = "How did you become unstably housed or homeless?: My family does not have a stable place to stay",
+    history_homeless_why_other = "How did you become unstably housed or homeless?: Other"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+
+romance_sex_baseline <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_romance_sex = `romrel_sex`) %>%
+    mutate(history_romance_sex = gsub('"','',history_romance_sex)) %>%
+    mutate(history_romance_sex = gsub(', 3',' 3',history_romance_sex)) %>%
+    mutate(history_romance_sex = gsub(", don't tell"," don't tell",history_romance_sex))
+  variable_prefix <- "history_romance_sex"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_romance_sex_I have played around or cheated on my partner(s)` = "history_romance_sex_cheated",
+    `history_romance_sex_I have sex with other people` = "history_romance_sex_others",
+    `history_romance_sex_My partner(s) has played around or cheated on me` = "history_romance_sex_pcheated",
+    `history_romance_sex_My partner(s) has sex with other people` = "history_romance_sex_pothers",
+    `history_romance_sex_We do not have a sexual relationship` = "history_romance_sex_nosex",
+    `history_romance_sex_We don't ask don't tell about having sex with others` = "history_romance_sex_dontask",
+    `history_romance_sex_We had a period (or periods) of monogamy (sex only with each other)` = "history_romance_sex_partmono",
+    `history_romance_sex_We have had sex with other people together (for example 3-ways)` = "history_romance_sex_together",
+    `history_romance_sex_We have only had sex with each other and no one else since we started our relationship` = "history_romance_sex_fullmono"
+  )
+  new_labels <- list(
+    history_romance_sex_cheated = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: I have played around or cheated",
+    history_romance_sex_others = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: I have sex with other people",
+    history_romance_sex_pcheated = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: My partners have played around or cheated",
+    history_romance_sex_pothers = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: My partners have sex with other people",
+    history_romance_sex_nosex = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We do not have a sexual relationship",
+    history_romance_sex_dontask = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We don't ask don't tell about having sex with others",
+    history_romance_sex_partmono = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We had a period of monogamy",
+    history_romance_sex_together = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We only had sex with others together (for example 3-ways)",
+    history_romance_sex_fullmono = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We have only had sex with each other"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+romance_sex_baseline <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_romance_sex = `romrel_sex`) %>%
+    mutate(history_romance_sex = gsub('"','',history_romance_sex)) %>%
+    mutate(history_romance_sex = gsub(', 3',' 3',history_romance_sex)) %>%
+    mutate(history_romance_sex = gsub(", don't tell"," don't tell",history_romance_sex))
+  variable_prefix <- "history_romance_sex"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_romance_sex_I have played around or cheated on my partner(s)` = "history_romance_sex_cheated",
+    `history_romance_sex_I have sex with other people` = "history_romance_sex_others",
+    `history_romance_sex_My partner(s) has played around or cheated on me` = "history_romance_sex_pcheated",
+    `history_romance_sex_My partner(s) has sex with other people` = "history_romance_sex_pothers",
+    `history_romance_sex_We do not have a sexual relationship` = "history_romance_sex_nosex",
+    `history_romance_sex_We don't ask don't tell about having sex with others` = "history_romance_sex_dontask",
+    `history_romance_sex_We had a period (or periods) of monogamy (sex only with each other)` = "history_romance_sex_partmono",
+    `history_romance_sex_We have had sex with other people together (for example 3-ways)` = "history_romance_sex_together",
+    `history_romance_sex_We have only had sex with each other and no one else since we started our relationship` = "history_romance_sex_fullmono"
+  )
+  new_labels <- list(
+    history_romance_sex_cheated = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: I have played around or cheated",
+    history_romance_sex_others = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: I have sex with other people",
+    history_romance_sex_pcheated = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: My partners have played around or cheated",
+    history_romance_sex_pothers = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: My partners have sex with other people",
+    history_romance_sex_nosex = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We do not have a sexual relationship",
+    history_romance_sex_dontask = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We don't ask don't tell about having sex with others",
+    history_romance_sex_partmono = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We had a period of monogamy",
+    history_romance_sex_together = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We only had sex with others together (for example 3-ways)",
+    history_romance_sex_fullmono = "Which of the following describe how you and your current partner(s) have had sex during the course of your relationship?: We have only had sex with each other"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
 romance_partners_gender_baseline <- function(filtered_baseline){
   filtered_data <- rename(filtered_baseline,history_romance_pgen = `romrel_ptnrsgndr`)
   variable_prefix <- "history_romance_pgen"
@@ -27,20 +372,18 @@ romance_partners_gender_baseline <- function(filtered_baseline){
   prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
   
   new_names <- c(
-    `demo_gender_Different identity (please state):` = "demo_gender_other",
-    `demo_gender_Female` = "demo_gender_female",
-    `demo_gender_Genderqueer/Gender non-conforming` = "demo_gender_queer",
-    `demo_gender_Male` = "demo_gender_male",
-    `demo_gender_Trans female/Trans woman` = "demo_gender_transwoman",
-    `demo_gender_Trans male/Trans man` = "demo_gender_transman"
+    `history_romance_pgen_Female` = "history_romance_pgen_female",
+    `history_romance_pgen_Genderqueer/Gender non-conforming` = "history_romance_pgen_queer",
+    `history_romance_pgen_Male` = "history_romance_pgen_male",
+    `history_romance_pgen_Trans female/Trans woman` = "history_romance_pgen_transwoman",
+    `history_romance_pgen_Trans male/Trans man` = "history_romance_pgen_transman"
   )
   new_labels <- list(
-    demo_gender_other = "What is your current gender identity?: Other",
-    demo_gender_female = "What is your current gender identity?: Female",
-    demo_gender_queer = "What is your current gender identity?: Genderqueer or nonconforming",
-    demo_gender_male = "What is your current gender identity?: Male",
-    demo_gender_transwoman = "What is your current gender identity?: Transwoman",
-    demo_gender_transman = "What is your current gender identity?: Transman"
+    history_romance_pgen_female = "What is the gender(s) of your partner(s)?: Female",
+    history_romance_pgen_queer = "What is the gender(s) of your partner(s)?: Genderqueer or nonconforming",
+    history_romance_pgen_male = "What is the gender(s) of your partner(s)?: Male",
+    history_romance_pgen_transwoman = "What is the gender(s) of your partner(s)?: Transwoman",
+    history_romance_pgen_transman = "What is the gender(s) of your partner(s)?: Transman"
   )
   
   return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
@@ -381,9 +724,20 @@ sti_pos_baseline <- function(filtered_baseline){
   return(return_data)
 }
 
-factor_keep_rename <- function(var_column, level_vector){
+numeric_keep_rename <- function(var_column){
   original_label_name <- attributes(var_column)$label
-  factored_column <- factor(var_column, levels = level_vector)
+  numeric_column <- as.numeric(var_column)
+  attr(numeric_column,"label") <- original_label_name
+  return(numeric_column)
+}
+
+factor_keep_rename <- function(var_column, level_vector = NULL){
+  original_label_name <- attributes(var_column)$label
+  if(is.null(level_vector)){
+    factored_column <- factor(var_column)  
+  } else {
+    factored_column <- factor(var_column, levels = level_vector)
+  }
   attr(factored_column,"label") <- original_label_name
   return(factored_column)
 }
@@ -394,4 +748,13 @@ factor_keep_rename_yn <- function(var_column){
   factored_column <- factor(var_column, levels = level_vector)
   attr(factored_column,"label") <- original_label_name
   return(factored_column)
+}
+
+rep_varnames <- function(prefix_name,name_seq){
+  new_list <- NULL
+  for(i in name_seq){
+    j <- as.character(i)
+    new_list <- append(new_list,paste0(prefix_name,j))
+  }
+  return(new_list)
 }

@@ -157,18 +157,23 @@ read_file_list <- function(data_dirname,
   return(return_files)
 }
 
-read_gps <- function(data_dirname,wockets_dirname,manual_dirname, skip_manual = FALSE){
-  gps_files <- read_file_list(data_dirname,wockets_dirname,"data/","lml_com$","GPS.csv$")
-  pre_raw_gps_log <- rbindlist(lapply(gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = wockets_dirname), fill = TRUE)
-  
-  if(!skip_manual){
-  manual_gps_files <- read_file_list(data_dirname,manual_dirname,"data","lml_com$","GPS.csv$")
-  manual_raw_gps_log <- rbindlist(lapply(manual_gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = manual_dirname), fill = TRUE)
-  # Switching to Data.Table Paradigm for Fast GPS Processing
-  merge_manual <- anti_join(manual_raw_gps_log,pre_raw_gps_log, by = c("file_id","V1"))
-  raw_gps_log <- bind_rows(pre_raw_gps_log,merge_manual)
-  } else {
-    raw_gps_log <- pre_raw_gps_log
+read_gps <- function(data_dirname,wockets_dirname,manual_dirname, skip_manual = FALSE, fast_mode = FALSE){
+  if(!fast_mode){
+    gps_files <- read_file_list(data_dirname,wockets_dirname,"data/","lml_com$","GPS.csv$")
+    pre_raw_gps_log <- rbindlist(lapply(gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = wockets_dirname), fill = TRUE)
+    
+    if(!skip_manual){
+    manual_gps_files <- read_file_list(data_dirname,manual_dirname,"data","lml_com$","GPS.csv$")
+    manual_raw_gps_log <- rbindlist(lapply(manual_gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = manual_dirname), fill = TRUE)
+    # Switching to Data.Table Paradigm for Fast GPS Processing
+    merge_manual <- anti_join(manual_raw_gps_log,pre_raw_gps_log, by = c("file_id","V1"))
+    raw_gps_log <- bind_rows(pre_raw_gps_log,merge_manual)
+    } else {
+      raw_gps_log <- pre_raw_gps_log
+    }
+  }
+  else{
+    raw_gps_log <- fread(paste(data_dirname,"gps_logs.csv",sep = "/"), colClasses = rep("chr",7))
   }
   
   names(raw_gps_log) <- c("a","b","c","d","e","f","file_id")

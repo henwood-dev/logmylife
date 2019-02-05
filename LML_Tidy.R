@@ -38,16 +38,19 @@ filename_varstub <- "PromptResponses_EMA.csv$"
 
 dummy3 <- function() {
   data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
+  enroll_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level/enroll_sheet.csv"
+  
   ema <- tidy_ema(data_dirname, wockets_dirname,manual_dirname,TRUE,FALSE,FALSE,TRUE)
-  fast_daily <- tidy_daily(data_dirname,wockets_dirname,manual_dirname,"",TRUE,TRUE,TRUE)
+  daily <- tidy_daily(data_dirname,wockets_dirname,manual_dirname,"",TRUE,TRUE,TRUE)
+  gps <- read_gps(data_dirname, wockets_dirname, manual_dirname, TRUE, TRUE)
 
   #ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
   #enroll_filepath <- "C:/Users/dzubur/Desktop/LML Raw Data/enroll_sheet.csv"
-  enroll_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level/enroll_sheet.csv"
   enroll <- read_csv(enroll_filepath) %>%
     transmute(system_file = as.character(PID_master),
               enroll = as_date(Date_PhoneSetup, format = "%m/%d/%y", tz = ""),
               end = enroll + 8)
+  
   ema_new <- ema %>%
     left_join(enroll, by = "system_file") %>%
     mutate(date = as_date(PromptDate, tz = ""),
@@ -56,8 +59,7 @@ dummy3 <- function() {
   write_dta(ema_new,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Team/Sara/ema_data.dta")
   #write_dta(ema_new,"C:/Users/dzubur/Desktop/ema_data.dta")
   
-  gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
-  daily <- tidy_daily(data_dirname, wockets_dirname, manual_dirname, sni_stata_filename)
+  
   daily_sleep <- daily %>%
     filter(prompt_status == "Completed") %>%
     select(subject_id,prompt_date,wake_hour,wake_minute,sleep_hour,sleep_minute,no_sleep) %>%
@@ -637,15 +639,16 @@ gps_fusion_adapter <- function(new_gps, export_dirname){
   return(print_ema_fusion)
 }
 
-tidy_gps <- function(data_dirname, wockets_dirname, manual_dirname = "", skip_manual = FALSE, retain_names = FALSE){
+tidy_gps <- function(data_dirname, wockets_dirname, manual_dirname = "", skip_manual = FALSE, retain_names = FALSE,
+                     fast_mode = FALSE){
   ema <- tidy_ema(data_dirname = data_dirname, wockets_dirname = wockets_dirname,
-                  manual_dirname = manual_dirname, skip_manual = skip_manual, retain_names = retain_names) %>%
+                  manual_dirname = manual_dirname, skip_manual = skip_manual, retain_names = retain_names,fast_mode = fast_mode) %>%
     mutate(file_id = system_file)
   
   ema_dt <- as.data.table(ema)
   ema_dt[, merge_row := .I]
 
-  gps <- read_gps(data_dirname, wockets_dirname, manual_dirname, skip_manual = skip_manual)
+  gps <- read_gps(data_dirname, wockets_dirname, manual_dirname, skip_manual = skip_manual,fast_mode = fast_mode)
   ema_premerge <- ema_dt[, c("PromptTime","file_id","merge_row")]
   ema_premerge[, PromptTime := str_replace(PromptTime,"PDT","")]
   ema_premerge[, PromptTime := str_replace(PromptTime,"PST","")]
