@@ -20,6 +20,255 @@ select <- dplyr::select
 # Imports
 source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 
+template <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,scale_phealth = `chronicdx`) %>%
+    mutate(scale_phealth = gsub(', Chronic',' Chronic',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', Chronic Bronchitis',' chronic bronchitis',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', Emphysema',' emphysema',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', COPD',' COPD',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', or',' or',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', such',' such',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', heart',' heart',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', arrhythmia',' arrhythmia',scale_phealth))
+  variable_prefix <- "scale_phealth"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    
+  )
+  
+  new_labels <- c(
+    
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+tobacco_typeused <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,tobacco_typeused = `tobacco_types`) %>%
+    mutate(tobacco_typeused = gsub(', hookah',' hookah',tobacco_typeused)) %>%
+    mutate(tobacco_typeused = gsub(', etc',' etc',tobacco_typeused)) %>%
+    mutate(tobacco_typeused = gsub(', pipes',' pipes',tobacco_typeused)) %>%
+    mutate(tobacco_typeused = gsub(', cigars',' cigars',tobacco_typeused))
+  variable_prefix <- "tobacco_typeused"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `tobacco_typeused_Chewing tobacco/dip` = "tobacco_typeused_smokeless",
+    `tobacco_typeused_E-cigarettes/vaped tobacco` = "tobacco_typeused_vape",
+    `tobacco_typeused_Smoked tobacco (cigarettes cigars/cigarillos pipes hookah etc.)` = "tobacco_typeused_smoke",
+    `tobacco_typeused_Something else (please specify):` = "tobacco_typeused_other"
+  )
+  
+  new_labels <- c(
+    tobacco_typeused_smokeless = "What type(s) of tobacco have you used in the past 30 days?: Chewing tobacco/dip" ,
+    tobacco_typeused_vape = "What type(s) of tobacco have you used in the past 30 days?: E-cigarettes/vaped tobacco" ,
+    tobacco_typeused_smoke = "What type(s) of tobacco have you used in the past 30 days?: Smoked tobacco (cigarettes cigars/cigarillos pipes hookah etc.)",
+    tobacco_typeused_other = "What type(s) of tobacco have you used in the past 30 days?: Something else (please specify):"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+scale_coping <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,scale_coping = `coping`) %>%
+    mutate(scale_coping = gsub(', draw',' draw',scale_coping)) 
+  variable_prefix <- "scale_coping"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `scale_coping_Concentrated on what to do and how to solve the problem` = "scale_coping_problemsolve",
+    `scale_coping_Do a hobby (e.g. read draw)` = "scale_coping_hobby",
+    `scale_coping_Go off by myself to think` = "scale_coping_alone",
+    `scale_coping_Go to sleep` = "scale_coping_sleep",
+    `scale_coping_Go to someone I trust for support` = "scale_coping_support",
+    `scale_coping_I have not used any of these ways to deal with problems in the past 3 months` = "scale_coping_none",
+    `scale_coping_Realize that I am strong and can deal with whatever is bothering me` = "scale_coping_realize",
+    `scale_coping_Think about how things will get better in the future` = "scale_coping_thinkfuture",
+    `scale_coping_Think about what happened and try to sort it out in my head` = "scale_coping_thinkpresent",
+    `scale_coping_Try not to think about it` = "scale_coping_ignore",
+    `scale_coping_Try to learn from the bad experience` = "scale_coping_learn",
+    `scale_coping_Try to value myself and not think so much about other people's opinions` = "scale_coping_valueself",
+    `scale_coping_Use drugs or alcohol` = "scale_coping_drugs",
+    `scale_coping_Use my anger to get me through it` = "scale_coping_anger",
+    `scale_coping_Use my spiritual beliefs/belief in a higher power` = "scale_coping_spiritual"
+  )
+  
+  new_labels <- c(
+    scale_coping_problemsolve = "Which of the following ways have you dealt with problems in the past 3 months?: Concentrated on what to do and how to solve the problem",
+    scale_coping_hobby = "Which of the following ways have you dealt with problems in the past 3 months?: Do a hobby (e.g. read draw)",
+    scale_coping_alone = "Which of the following ways have you dealt with problems in the past 3 months?: Go off by myself to think",
+    scale_coping_sleep = "Which of the following ways have you dealt with problems in the past 3 months?: Go to sleep",
+    scale_coping_support = "Which of the following ways have you dealt with problems in the past 3 months?: Go to someone I trust for support",
+    scale_coping_none = "Which of the following ways have you dealt with problems in the past 3 months?: I have not used any of these ways to deal with problems in the past 3 months",
+    scale_coping_realize = "Which of the following ways have you dealt with problems in the past 3 months?: Realize that I am strong and can deal with whatever is bothering me",
+    scale_coping_thinkfuture = "Which of the following ways have you dealt with problems in the past 3 months?: Think about how things will get better in the future",
+    scale_coping_thinkpresent = "Which of the following ways have you dealt with problems in the past 3 months?: Think about what happened and try to sort it out in my head",
+    scale_coping_ignore = "Which of the following ways have you dealt with problems in the past 3 months?: Try not to think about it",
+    scale_coping_learn = "Which of the following ways have you dealt with problems in the past 3 months?: Try to learn from the bad experience",
+    scale_coping_valueself = "Which of the following ways have you dealt with problems in the past 3 months?: Try to value myself and not think so much about other people's opinions",
+    scale_coping_drugs = "Which of the following ways have you dealt with problems in the past 3 months?: Use drugs or alcohol",
+    scale_coping_anger = "Which of the following ways have you dealt with problems in the past 3 months?: Use my anger to get me through it",
+    scale_coping_spiritual = "Which of the following ways have you dealt with problems in the past 3 months?: Use my spiritual beliefs/belief in a higher power"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+scale_phealth <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,scale_phealth = `chronicdx`) %>%
+    mutate(scale_phealth = gsub(', Chronic',' Chronic',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', Chronic Bronchitis',' chronic bronchitis',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', Emphysema',' emphysema',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', COPD',' COPD',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', or',' or',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', such',' such',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', heart',' heart',scale_phealth)) %>%
+    mutate(scale_phealth = gsub(', arrhythmia',' arrhythmia',scale_phealth))
+  variable_prefix <- "scale_phealth"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `scale_phealth_Anemia` = "scale_phealth_anemia",
+    `scale_phealth_Arthritis` = "scale_phealth_arthritis",
+    `scale_phealth_Asthma Chronic Bronchitis emphysema COPD or other respiratory conditions.` = "scale_phealth_asthma",
+    `scale_phealth_Blind in one or both eyes (condition not specified)` = "scale_phealth_blindness",
+    `scale_phealth_Cancer` = "scale_phealth_cancer",
+    `scale_phealth_Cirrhosis of the liver or pancreatitis` = "scale_phealth_cirrhosis",
+    `scale_phealth_Diabetes or high blood sugar` = "scale_phealth_diabetes",
+    `scale_phealth_Hearing impairment or deafness` = "scale_phealth_hearing",
+    `scale_phealth_Heart murmur` = "scale_phealth_heartmurmur",
+    `scale_phealth_High blood pressure or hypertension` = "scale_phealth_hypertension",
+    `scale_phealth_High/low cholesterol` = "scale_phealth_cholesterol",
+    `scale_phealth_I have never been told that I have any chronic health conditions` = "scale_phealth_none",
+    `scale_phealth_Insomnia` = "scale_phealth_insomnia",
+    `scale_phealth_Kidney disease or weak/failing kidneys` = "scale_phealth_kidneys",
+    `scale_phealth_Migraines` = "scale_phealth_migraines",
+    `scale_phealth_Obesity` = "scale_phealth_obesity",
+    `scale_phealth_Other cardiovascular disease (coronary artery disease/atherosclerosis heart disease heart attack arrhythmia)` = "scale_phealth_cvdother",
+    `scale_phealth_Respiratory conditions such as Asthma Chronic Bronchitis emphysema or COPD` = "scale_phealth_asthma2",
+    `scale_phealth_Sciatica/sciatic pain` = "scale_phealth_sciatica",
+    `scale_phealth_Scoliosis` = "scale_phealth_scoliosis",
+    `scale_phealth_Seizures` = "scale_phealth_seizures",
+    `scale_phealth_Sleep apnea` = "scale_phealth_sleepapnea",
+    `scale_phealth_Something else not listed here (please specify)` = "scale_phealth_other",
+    `scale_phealth_Thyroid disorder` = "scale_phealth_thyroid",
+    `scale_phealth_Tuberculosis` = "scale_phealth_tuberculosis"
+  )
+  
+  new_labels <- c(
+    scale_phealth_anemia = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Anemia",
+    scale_phealth_arthritis = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Arthritis",
+    scale_phealth_asthma = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Asthma Chronic Bronchitis emphysema COPD or other respiratory conditions.",
+    scale_phealth_blindness = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Blind in one or both eyes (condition not specified)",
+    scale_phealth_cancer = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Cancer",
+    scale_phealth_cirrhosis = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Cirrhosis of the liver or pancreatitis",
+    scale_phealth_diabetes = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Diabetes or high blood sugar",
+    scale_phealth_hearing = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Hearing impairment or deafness",
+    scale_phealth_heartmurmur = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Heart murmur",
+    scale_phealth_hypertension = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?High blood pressure or hypertension",
+    scale_phealth_cholesterol = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?High/low cholesterol",
+    scale_phealth_none = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?I have never been told that I have any chronic health conditions",
+    scale_phealth_insomnia = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Insomnia",
+    scale_phealth_kidneys = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Kidney disease or weak/failing kidneys",
+    scale_phealth_migraines = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Migraines",
+    scale_phealth_obesity = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Obesity",
+    scale_phealth_cvdother = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Other cardiovascular disease (coronary artery disease/atherosclerosis heart disease heart attack arrhythmia)",
+    scale_phealth_asthma2 = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Respiratory conditions such as Asthma Chronic Bronchitis emphysema or COPD",
+    scale_phealth_sciatica = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Sciatica/sciatic pain",
+    scale_phealth_scoliosis = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Scoliosis",
+    scale_phealth_seizures = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Seizures",
+    scale_phealth_sleepapnea = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Sleep apnea",
+    scale_phealth_other = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Something else not listed here (please specify)",
+    scale_phealth_thyroid = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Thyroid disorder",
+    scale_phealth_tuberculosis = "Has a doctor or other health professional ever told you that you had any of the following conditions or other chronic health conditions not listed here?Tuberculosis"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator) %>%
+    mutate(scale_phealth_asthma = ifelse(scale_phealth_asthma != 1,scale_phealth_asthma2,scale_phealth_asthma)) %>%
+    select(-scale_phealth_asthma2)
+  
+  attr(return_data$scale_phealth_asthma,"label") <- new_labels[3]
+  
+  return(return_data)
+}
+
+income_source_30day <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_income_source_30day = `incmgen_30day`) %>%
+    mutate(history_income_source_30day = gsub(', seasonal',' seasonal',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', minimum',' minimum',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', GR',' GR',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', food',' food',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', TANF',' TANF',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', SSI',' SSI',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', such',' such',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', drugs',' drugs',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', shelter',' shelter',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub(', or',' or',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub('\"','',history_income_source_30day)) 
+  variable_prefix <- "history_income_source_30day"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_income_source_30day_Clothing or other personal possessions that you sold` = "history_income_source_30day_clothes",
+    `history_income_source_30day_Collecting and selling bottles/cans` = "history_income_source_30day_bottles",
+    `history_income_source_30day_Dealing drugs` = "history_income_source_30day_drugs",
+    `history_income_source_30day_Doing any kind of paid temporary work (day labor seasonal work minimum wage or pick-up work)` = "history_income_source_30day_tempwork",
+    `history_income_source_30day_Doing any work that you were paid under the table for` = "history_income_source_30day_underwork",
+    `history_income_source_30day_Friends` = "history_income_source_30day_friends",
+    `history_income_source_30day_From an agency or program such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)` = "history_income_source_30day_agency",
+    `history_income_source_30day_Gambling` = "history_income_source_30day_gambling",
+    `history_income_source_30day_Panhandling/people just giving you money` = "history_income_source_30day_panhandle",
+    `history_income_source_30day_Public benefits such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)` = "history_income_source_30day_publicbenefits",
+    `history_income_source_30day_Relatives` = "history_income_source_30day_relatives",
+    `history_income_source_30day_Selling self-made items` = "history_income_source_30day_sellmade",
+    `history_income_source_30day_Selling stolen goods` = "history_income_source_30day_sellstolen",
+    `history_income_source_30day_Stealing` = "history_income_source_30day_stealing",
+    `history_income_source_30day_The sale of your blood/plasma` = "history_income_source_30day_blood",
+    `history_income_source_30day_Trading sexual favors in exchange for money drugs shelter food or anything else of value` = "history_income_source_30day_tradesex",
+    `history_income_source_30day_Working a full-time job (38+ hours per week)` = "history_income_source_30day_ftjob",
+    `history_income_source_30day_Working multiple part-time jobs that add up to 38+ hours per week in total` = "history_income_source_30day_multijob",
+    `history_income_source_30day_Working one or more part-time jobs that add up to less than 38 hours per week` = "history_income_source_30day_ptjobs"
+  )
+  
+  new_labels <- c(
+    history_income_source_30day_clothes = "During the past 30 days, did you get any money or resources to meet your basic needs from: Clothing or other personal possessions that you sold",
+    history_income_source_30day_bottles = "During the past 30 days, did you get any money or resources to meet your basic needs from: Collecting and selling bottles/cans",
+    history_income_source_30day_drugs = "During the past 30 days, did you get any money or resources to meet your basic needs from: Dealing drugs",
+    history_income_source_30day_tempwork = "During the past 30 days, did you get any money or resources to meet your basic needs from: Doing any kind of paid temporary work (day labor seasonal work minimum wage or pick-up work)",
+    history_income_source_30day_underwork = "During the past 30 days, did you get any money or resources to meet your basic needs from: Doing any work that you were paid under the table for",
+    history_income_source_30day_friends = "During the past 30 days, did you get any money or resources to meet your basic needs from: Friends",
+    history_income_source_30day_agency = "During the past 30 days, did you get any money or resources to meet your basic needs from: From an agency or program such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)",
+    history_income_source_30day_gambling = "During the past 30 days, did you get any money or resources to meet your basic needs from: Gambling",
+    history_income_source_30day_panhandle = "During the past 30 days, did you get any money or resources to meet your basic needs from: Panhandling/people just giving you money",
+    history_income_source_30day_publicbenefits = "During the past 30 days, did you get any money or resources to meet your basic needs from: Public benefits such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)",
+    history_income_source_30day_relatives = "During the past 30 days, did you get any money or resources to meet your basic needs from: Relatives",
+    history_income_source_30day_sellmade = "During the past 30 days, did you get any money or resources to meet your basic needs from: Selling self-made items",
+    history_income_source_30day_sellstolen = "During the past 30 days, did you get any money or resources to meet your basic needs from: Selling stolen goods",
+    history_income_source_30day_stealing = "During the past 30 days, did you get any money or resources to meet your basic needs from: Stealing",
+    history_income_source_30day_blood = "During the past 30 days, did you get any money or resources to meet your basic needs from: The sale of your blood/plasma",
+    history_income_source_30day_tradesex = "During the past 30 days, did you get any money or resources to meet your basic needs from: Trading sexual favors in exchange for money drugs shelter food or anything else of value",
+    history_income_source_30day_ftjob = "During the past 30 days, did you get any money or resources to meet your basic needs from: Working a full-time job (38+ hours per week)",
+    history_income_source_30day_multijob = "During the past 30 days, did you get any money or resources to meet your basic needs from: Working multiple part-time jobs that add up to 38+ hours per week in total",
+    history_income_source_30day_ptjobs = "During the past 30 days, did you get any money or resources to meet your basic needs from: Working one or more part-time jobs that add up to less than 38 hours per week"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+
 healthcare_access_needs <- function(filtered_baseline){
   filtered_data <- rename(filtered_baseline,healthcare_access_needs = `healthneeds`) 
   variable_prefix <- "healthcare_access_needs"
@@ -74,18 +323,18 @@ livsit_current_baseline <- function(filtered_baseline){
     `unhoused_livsit_now_Adult longer-term shelter (more than 30 days)` = "unhoused_livsit_now_longshelter",
     `unhoused_livsit_now_Car bus light rail or metro` = "unhoused_livsit_now_transit",
     `unhoused_livsit_now_Family home` = "unhoused_livsit_now_familyhome",
-    #`unhoused_livsit_now_Foster family home` = "unhoused_livsit_now_fosterhome",
+    `unhoused_livsit_now_Foster family home` = "unhoused_livsit_now_fosterhome",
     `unhoused_livsit_now_Friend's home` = "unhoused_livsit_now_friendhome",
-    #`unhoused_livsit_now_Group home` = "unhoused_livsit_now_grouphome",
+    `unhoused_livsit_now_Group home` = "unhoused_livsit_now_grouphome",
     `unhoused_livsit_now_Home of boyfriend/girlfriend/person I'm having sex with` = "unhoused_livsit_now_relationhome",
-    #`unhoused_livsit_now_Home of someone I do not know or barely know` = "unhoused_livsit_now_strangerhome",
-    #`unhoused_livsit_now_Hotel/motel` = "unhoused_livsit_now_hotel",
-    #`unhoused_livsit_now_Juvenile detention center or jail` = "unhoused_livsit_now_jail",
+    `unhoused_livsit_now_Home of someone I do not know or barely know` = "unhoused_livsit_now_strangerhome",
+    `unhoused_livsit_now_Hotel/motel` = "unhoused_livsit_now_hotel",
+    `unhoused_livsit_now_Juvenile detention center or jail` = "unhoused_livsit_now_jail",
     `unhoused_livsit_now_Other (please specify)` = "unhoused_livsit_now_other",
-    #`unhoused_livsit_now_Own apartment` = "unhoused_livsit_now_ownapt",
-    #`unhoused_livsit_now_Permanent supportive housing/supportive housing program` = "unhoused_livsit_now_psh",
-    #`unhoused_livsit_now_Relative's home` = "unhoused_livsit_now_relativehome",
-    #`unhoused_livsit_now_Sober living facility` = "unhoused_livsit_now_sober",
+    `unhoused_livsit_now_Own apartment` = "unhoused_livsit_now_ownapt",
+    `unhoused_livsit_now_Permanent supportive housing/supportive housing program` = "unhoused_livsit_now_psh",
+    `unhoused_livsit_now_Relative's home` = "unhoused_livsit_now_relativehome",
+    `unhoused_livsit_now_Sober living facility` = "unhoused_livsit_now_sober",
     `unhoused_livsit_now_Street park beach or outside` = "unhoused_livsit_now_outdoors",
     `unhoused_livsit_now_Transitional living program (TLP)` = "unhoused_livsit_now_tlp",
     `unhoused_livsit_now_Youth-only emergency/temporary shelter (less than 30 days)` = "unhoused_livsit_now_youthshortshelter",
@@ -97,18 +346,18 @@ livsit_current_baseline <- function(filtered_baseline){
     unhoused_livsit_now_longshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Adult longer term shelter (more than 30 days)",
     unhoused_livsit_now_transit = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Car bus light rail or metro",
     unhoused_livsit_now_familyhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Family home",
-    #unhoused_livsit_now_fosterhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : foster family home",
+    unhoused_livsit_now_fosterhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : foster family home",
     unhoused_livsit_now_friendhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : friends home",
-    #unhoused_livsit_now_grouphome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : group home",
+    unhoused_livsit_now_grouphome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : group home",
     unhoused_livsit_now_relationhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of boyfriend/girlfriend/person I am having sex with",
-    #unhoused_livsit_now_strangerhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of someone I do not know",
-    #unhoused_livsit_now_hotel = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : hotel or motel",
-    #unhoused_livsit_now_jail = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : juvenile detention center or jail",
+    unhoused_livsit_now_strangerhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of someone I do not know",
+    unhoused_livsit_now_hotel = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : hotel or motel",
+    unhoused_livsit_now_jail = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : juvenile detention center or jail",
     unhoused_livsit_now_other = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : other",
-    #unhoused_livsit_now_ownapt = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : own apartment",
-    #unhoused_livsit_now_psh = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : PSH housing program",
-    #unhoused_livsit_now_relativehome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : relatives home",
-    #unhoused_livsit_now_sober = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : sober living facility",
+    unhoused_livsit_now_ownapt = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : own apartment",
+    unhoused_livsit_now_psh = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : PSH housing program",
+    unhoused_livsit_now_relativehome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : relatives home",
+    unhoused_livsit_now_sober = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : sober living facility",
     unhoused_livsit_now_outdoors = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : street park beach or outside",
     unhoused_livsit_now_tlp = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : TLP program",
     unhoused_livsit_now_youthshortshelter = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Youth emergency shelter (less than 30 days)",
@@ -138,7 +387,7 @@ livsit_3mo_baseline <- function(filtered_baseline){
     `unhoused_livsit_3mo_Family home` = "unhoused_livsit_3mo_familyhome",
     `unhoused_livsit_3mo_Foster family home` = "unhoused_livsit_3mo_fosterhome",
     `unhoused_livsit_3mo_Friend's home` = "unhoused_livsit_3mo_friendhome",
-    #`unhoused_livsit_3mo_Group home` = "unhoused_livsit_3mo_grouphome",
+    `unhoused_livsit_3mo_Group home` = "unhoused_livsit_3mo_grouphome",
     `unhoused_livsit_3mo_Home of boyfriend/girlfriend/person I'm having sex with` = "unhoused_livsit_3mo_relationhome",
     `unhoused_livsit_3mo_Home of someone I do not know or barely know` = "unhoused_livsit_3mo_strangerhome",
     `unhoused_livsit_3mo_Hotel/motel` = "unhoused_livsit_3mo_hotel",
@@ -161,7 +410,7 @@ livsit_3mo_baseline <- function(filtered_baseline){
     unhoused_livsit_3mo_familyhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : Family home",
     unhoused_livsit_3mo_fosterhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : foster family home",
     unhoused_livsit_3mo_friendhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : friends home",
-    #unhoused_livsit_3mo_grouphome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : group home",
+    unhoused_livsit_3mo_grouphome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : group home",
     unhoused_livsit_3mo_relationhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of boyfriend/girlfriend/person I am having sex with",
     unhoused_livsit_3mo_strangerhome = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : home of someone I do not know",
     unhoused_livsit_3mo_hotel = "In the past 3 months, which of the following types of living situations/housing programs have you lived in? : hotel or motel",

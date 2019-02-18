@@ -104,6 +104,7 @@ prebind_data <- function(filtered_data, variable_prefix, name_keys = "", name_va
       select(starts_with(paste0(variable_prefix,"_"))) %>%
       set_label(unlist(name_value_pairs))
   }
+  
   return(return_data)
 }
 
@@ -117,8 +118,8 @@ generate_missing_column <- function(data_name, column_names){
   return(return_data_name)
 }
 
-enrollment_dates <- function(data_dirname){
-  enrollment <- read_csv(paste(data_dirname,"enrollment.csv", sep = "/")) %>%
+clean_enrollment <- function(enrollment_dirname){
+  enrollment <- read_csv(paste(enrollment_dirname,"enrollment.csv", sep = "/")) %>%
     select(file_id = PID_master,start_date = appstartdate,stop_date = appenddate,
            end_date = Date_Visit2, hours_up = 'wake-sleepDIF', true_wake = waketime,
            true_sleep = sleeptime) %>%
@@ -136,7 +137,7 @@ enrollment_dates <- function(data_dirname){
     filter(as.integer(file_id)<3000) %>%
     select(file_id,enroll_start = start_date,enroll_end = true_end)
   
-  write_csv(as.data.frame(enrollment$file_id),paste(data_dirname,"pids.txt",sep = "/"),col_names = FALSE)
+  write_csv(as.data.frame(enrollment$file_id),paste(enrollment_dirname,"pids.txt",sep = "/"),col_names = FALSE)
   
   return(enrollment)
 }

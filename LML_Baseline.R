@@ -95,6 +95,7 @@ demographics <- function() {
 }
 
 clean_followup <- function(v2q_data){
+  gad_vars <- paste0(rep_varnames("gad7_",1:7),"_v2")
   rm_vars <- append(rep_varnames("hes_rm_",7:15),rep_varnames("hes_uh_rm_",7:15))
   n_vars <- append(rep_varnames("hes_n_",1:9),rep_varnames("hes_uh_n_",1:9))
   nsc_vars <- append(rep_varnames("hes_nsc_",1:8),rep_varnames("hes_uh_nsc_",1:8))
@@ -107,12 +108,24 @@ clean_followup <- function(v2q_data){
     rename(followup_id = responseid,
            pid = v2q_pid) %>%
     setnames(c("q165"),c("hes_uh_nes_8")) %>%
+    setnames(c("casey_wsl_1"),c("casey_wls_1")) %>%
     mutate_at(vars(hes_rm_1,hes_uh_rm_1,hes_c_3,hes_uh_c_3,hes_uh_stay,
-                   starts_with("smasi_")), funs(factor_keep_rename_yn(.))) %>%
+                   starts_with("smasi_"),ei_follow_up_yn), funs(factor_keep_rename_yn(.))) %>%
     mutate_at(vars(hes_rm_2,hes_uh_rm_2), funs(factor_keep_rename(., level_vector = c(
       "1","2","3","4","5 or more")))) %>%
     setnames(c("hes_uh_stay"),c("hes_uh_applicable")) %>%
-    mutate_at(vars(hes_rm_3,hes_uh_rm_3), funs(factor_keep_rename(.))) %>%
+    mutate_at(vars(starts_with("ders_sf_")), funs(gsub("\n","",.))) %>%
+    mutate_at(vars(starts_with("ders_sf_")), funs(tolower(.))) %>%
+    mutate_at(vars(starts_with("ders_sf_")), funs(factor_keep_rename(., level_vector = c("almost never(0-10%)",
+                                                                                         "sometimes(11-35%)",
+                                                                                         "about half of the time(36-65%)",
+                                                                                         "most of the time(66-90%)",
+                                                                                         "almost always(91-100%)")))) %>%
+    mutate_at(vars(hes_rm_3,hes_uh_rm_3,ei_phonetype,ei_phonepref), funs(factor_keep_rename(.))) %>%
+    mutate_at(vars(ei_genexp), funs(factor_keep_rename(., level_vector = c(
+      "Very Negative","Somewhat Negative","Neutral","Somewhat Positive","Very Positive")))) %>%
+    mutate_at(vars(ei_genexp), funs(factor_keep_rename(., level_vector = c(
+      "No, this week was not typical (explain):","Yes, this was a typical week")))) %>%
     mutate_at(vars(hes_rm_4,hes_uh_rm_4), funs(factor_keep_rename(., level_vector = c(
       "None","Little","Some","Much","Completely my choice")))) %>%
     mutate_at(vars(hes_rs_3,hes_rs_4,hes_uh_rs_3,hes_uh_rs_4), funs(factor_keep_rename(., level_vector = c(
@@ -133,13 +146,26 @@ clean_followup <- function(v2q_data){
                                                                                       "Several days",
                                                                                       "More than half the days",
                                                                                       "Nearly every day")))) %>%
+    mutate_at(vars(one_of(gad_vars)), funs(factor_keep_rename(., level_vector =c("Not at all",
+                                                                                 "Several days",
+                                                                                 "Over half the days",
+                                                                                 "Nearly every day")))) %>%
+    mutate_at(vars(gad7_8_v2), funs(factor_keep_rename(., level_vector = c("Not difficult at all",
+                                                                        "Somewhat difficult",
+                                                                        "Very difficult",
+                                                                        "Extremely difficult")))) %>%
     mutate_at(vars(hes_rm_17,hes_uh_rm_17,hes_rs_1,hes_rs_2,
                    hes_uh_rs_1,hes_uh_rs_2), funs(factor_keep_rename(., level_vector = c(
       "Very dissatisfied","Dissatisfied","Neither dissatisfied or satisfied","Satisfied","Very satisfied")))) %>%
     mutate_at(vars(starts_with("hes_pq_"),starts_with("hes_nes_"),starts_with("hes_uh_nes"),
-                   one_of(n_vars),one_of(nsc_vars),starts_with("hes_ll_"))
+                   one_of(n_vars),one_of(nsc_vars),starts_with("hes_ll_"),
+                   starts_with("ei_agree_"))
               , funs(factor_keep_rename(., level_vector = c(
       "Strongly disagree","Disagree","Neither disagree nor agree","Agree","Strongly agree")))) %>%
+    mutate_at(vars(starts_with("casey_")), funs(factor_keep_rename(., level_vector = c("Mostly no",
+                                                                                                "Somewhat",
+                                                                                                "Yes",
+                                                                                                "Mostly yes")))) %>%
     mutate_at(vars(hes_uh_nsc_9,hes_nsc_9), funs(factor_keep_rename(., level_vector = c(
       "No one","A few","About half","Most","Everybody")))) %>%
     mutate_at(vars(starts_with("hes_uh_pq_")), funs(factor_keep_rename(., level_vector = c(
@@ -148,6 +174,8 @@ clean_followup <- function(v2q_data){
     mutate_at(vars(starts_with("hes_uh_s_"),starts_with("hes_s_")), funs(factor_keep_rename(., level_vector = c(
       "Never","A few times a year","Once per month or less","2-3 times a month","Once a week",
       "2-3 times a week","Once a day or more")))) %>%
+    mutate_at(vars(starts_with("ei_agree_")), funs(factor_keep_rename(., level_vector = c(
+      "Not at all","A little bit","Somewhat","Quite a bit","Very much")))) %>%
     select(-duration_in_seconds,-v2q_date,-v2q_surveytype,-q276) %>%
     setnames(c("hes_rs_6_1","hes_uh_rs_6_1"),c("hes_rs_duration_want_to_stay","hes_uh_rs_duration_want_to_stay")) %>%
     setnames(c("smasi_sf_servacc","smasi_sf_servacc_30d","smasi_sf_servenv","smasi_sf_servenv_30d"
@@ -177,6 +205,14 @@ clean_followup <- function(v2q_data){
   rs <- c("satisfy_housing", "satisfy_neighborhood", "compare_prev_livsit", "compare_prev_nhood","choice_in_livsit")
   smasi <- c("joke","phase","unsafe","racial","school","self","family")
   smasi_30day <- paste0("30day_",smasi)
+  casey_adl <- c("cls_daily_living_11_make_meals", "cls_daily_living_14_laundry",
+                 "cls_daily_living_15_clean_home", "cls_daily_living_16_cleaningknow")
+  casey_hmm <- c("cls_hmm_4_bank_account", "cls_hmm_8_payday_loan", "cls_hmm_11_rental_app",
+                 "cls_hmm_12_utility_help", "cls_hmm_19_plan_expenses", "cls_hmm_24_public_transit")
+  casey_wls <- c("cls_wsl_1_resume", "cls_wsl_2_jop_app", "cls_wsl_3_job_interview", "cls_wsl_9_get_work_documents",
+                 "cls_wsl_10_get_system_records")
+  casey_cep <- c("cls_wsl_2_jobtraining_info", "cls_wsl_5_educationforjobs","cls_wsl_7_financial_aid")
+  ders <- c("awareness_1", "clarity_2", "clarity_3","awareness_4","clarity_5","awareness_6")
   
   old_names<- rep_varnames("hes_pq_",1:5)
   new_names <- rep_varnames("hes_pq_",pq)
@@ -249,6 +285,36 @@ clean_followup <- function(v2q_data){
   new_names <- rep_varnames("depression_followup_phq9_",paste0(as.character(1:9)))
   setnames(filtered_followup,old_names,new_names)
   
+  old_names<- rep_varnames("gad7_",paste0(as.character(1:8),"_v2"))
+  new_names <- rep_varnames("anxiety_followup_gad7_",paste0(as.character(1:8)))
+  setnames(filtered_followup,old_names,new_names)
+  
+  old_names<- rep_varnames("ders_sf_v2q_",1:6)
+  new_names <- rep_varnames("ders_sf_followup_",ders)
+  setnames(filtered_followup,old_names,new_names)
+  
+  old_names<- rep_varnames("casey_adl_",1:4)
+  new_names <- casey_adl
+  setnames(filtered_followup,old_names,new_names)
+  old_names<- rep_varnames("casey_hmm_",1:6)
+  new_names <- casey_hmm
+  setnames(filtered_followup,old_names,new_names)
+  old_names<- rep_varnames("casey_wls_",1:5)
+  new_names <- casey_wls
+  setnames(filtered_followup,old_names,new_names)
+  old_names<- rep_varnames("casey_cep_",1:3)
+  new_names <- casey_cep
+  setnames(filtered_followup,old_names,new_names)
+  
+  old_names<- c("ei_phonetype","ei_phonepref","ei_typweek","ei_typweek_2_text","ei_genexp",
+                "ei_extent_ei_interfe","ei_extent_ei_stress","ei_extent_ei_battery",
+                "ei_agree_ei_behalter","ei_agree_ei_honestly","ei_agree_ei_doitagai",
+                "ei_agree_ei_judged","ei_follow_up_yn")
+  new_names <- c("exit_phonetype","exit_phonepref_newstudy","exit_typicalweek","exit_typicalweek_text","exit_app_experience_gen",
+                 "exit_extent_ema_interfere","exit_extent_ema_stress_anxiety","exit_extent_charging_difficulty","exit_agree_ema_behavior_change",
+                 "exit_agree_ema_honest_open","exit_agree_participate_again","exit_agree_judged_responses","exit_followup_okay")
+  setnames(filtered_followup,old_names,new_names)
+  
   ## NAMING VARIABLES
   
   attr(filtered_followup$followup_duration,"label") <- attributes(v2q_data$duration_in_seconds)$label
@@ -258,20 +324,46 @@ clean_followup <- function(v2q_data){
   attr(filtered_followup$followup_id,"label") <- "Baseline survery respone id"
   attr(filtered_followup$pid,"label") <- "Participant ID:"
   
-  incomplete_name_out <- capture.output(names(select(filtered_followup,-pid,-starts_with("followup_"),-starts_with("hes_"))))
-  incomplete_name_out
+  incomplete_name_out <- capture.output(names(select(filtered_followup,-pid,-starts_with("followup_"),-starts_with("hes_"),
+                                                     -starts_with("exit_"),-starts_with("smasi_"),-starts_with("depression_"),
+                                                     -starts_with("anxiety_"),-starts_with("cls_"),-starts_with("ders_"))))
+  print(incomplete_name_out)
   cat("List of variable names that are currently in progress", incomplete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/v2q_incomplete_varnames.txt", sep="\n")
   
-  complete_name_out <- capture.output(names(select(filtered_followup,pid,starts_with("followup_"),starts_with("hes_"))))
+  complete_name_out <- capture.output(names(select(filtered_followup,pid,starts_with("followup_"),starts_with("hes_"),
+                                                   starts_with("exit_"),starts_with("smasi_"),starts_with("depression_"),
+                                                   starts_with("anxiety_"),starts_with("cls_"),starts_with("ders_"))))
   complete_name_out
   cat("List of variable names that are complete + SNI", complete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/v2q_complete_varnames.txt", sep="\n")
   
-  completedsofar <- select(filtered_followup,pid,starts_with("followup_"),starts_with("hes_"))
+  completedsofar <- select(filtered_followup,pid,starts_with("followup_"),starts_with("hes_"),starts_with("exit_"),
+                           starts_with("smasi_"),starts_with("depression_"),starts_with("anxiety_"),
+                           starts_with("cls_"),starts_with("ders_"))
   write_dta(completedsofar,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup.dta")
   
+  return(completedsofar)
 }
 
 clean_baseline <- function(baseline_data){
+  drug_30 <- c("alc_30","marj_30","meth_30","mdma_30","synthmj_30",
+               "halluc_30","pdm_30","heroin_30","cocaine_30","crack_30",
+               "inhal_30","steroid_30","nitrous_30","keta_30","pcp_30",
+               "othersu_30")
+  
+  drugs_last <- c("tobacco_last","alc_last","marj_last","meth_last","mdma_last",
+                  "synthmj_last","halluc_last","pdm_last","heroin_last",
+                  "cocaine_last","crack_last","inhal_last","steroid_last",
+                  "nitrous_last","keta_last","pcp_last","othersu_last")
+  
+  tobacco_daily <- rep_varnames("tobacco_dailyamt_",1:8)
+  tobacco_weekly <- rep_varnames("tobacco_weeklyamt_",1:8)
+  tobacco_types <- c("retailcigs","handcigs","clovecigs","pipes","cigars","hookah","text","other")
+  new_tobacco_daily <- rep_varnames("tobacco_dailyamount_",tobacco_types)
+  new_tobacco_weekly <- rep_varnames("tobacco_weeklyamount_",tobacco_types)
+  tobacco_varnames <- c("tobacco_smokefreq","tobacco_smokelessfre","tobacco_vepfreq","tobacco_types_4_text")
+  new_tobacco_varnames <- c("tobacco_frequency_smoke","tobacco_frequency_smokeless","tobacco_frequency_vape",
+                            "tobacco_typeused_text")
+  
   filtered_baseline <- baseline_data %>%
     mutate(dob = gsub("-","/",dob),
            dob = ifelse(pid == "1011","07/17/1998",dob), 
@@ -338,7 +430,7 @@ clean_baseline <- function(baseline_data){
                                                                                    "5-6 years",
                                                                                    "7-8 years",
                                                                                    "9 or more years")))) %>%
-    mutate_at(vars(staybeforehoused), funs(factor_keep_rename(.))) %>%
+    mutate_at(vars(staybeforehoused,uh_livsit_curr), funs(factor_keep_rename(.))) %>%
     mutate_at(vars(fc_placements), funs(factor_keep_rename(., level_vector = c("1-2",
                                                                                "3-4",
                                                                                "5-9",
@@ -348,6 +440,7 @@ clean_baseline <- function(baseline_data){
       "Not at all","A little bit","Somewhat","Quite a bit","Very much")))) %>%
     mutate_at(vars(sd_sf2), funs(factor_keep_rename(., level_vector = c(
       "Very much","Quite a bit","Somewhat","A little bit","Not at all")))) %>%
+    mutate_at(vars(one_of(drug_30)), funs(numeric_keep_rename(.))) %>%
     mutate_at(vars(sd_sf1), funs(factor_keep_rename(., level_vector = c("Very good","Good",
                                                                         "Fair","Poor","Very poor")))) %>%
     mutate_at(vars(gad7_1,gad7_2,gad7_3,gad7_4,gad7_5,gad7_6,gad7_7), funs(factor_keep_rename(., level_vector = 
@@ -373,10 +466,6 @@ clean_baseline <- function(baseline_data){
                                                                                                 "A little",
                                                                                                 "More than a little",
                                                                                                 "A lot")))) %>%
-    mutate_at(vars(starts_with("stress_streets_")), funs(factor_keep_rename(., level_vector = c("Mostly no",
-                                                                                                "Somewhat",
-                                                                                                "Yes",
-                                                                                                "Mostly yes")))) %>%
     mutate_at(vars(starts_with("phq9_")), funs(factor_keep_rename(., level_vector = c("Not at all",
                                                                                       "Several days",
                                                                                       "More than half the days",
@@ -386,6 +475,15 @@ clean_baseline <- function(baseline_data){
                                                                           "Somewhat",
                                                                           "Much",
                                                                           "Very much")))) %>%
+    mutate_at(vars(tobacco_smokefreq,tobacco_smokelessfre,tobacco_vepfreq), funs(factor_keep_rename(., level_vector = c(
+      "Not at all",
+      "Less than daily",
+      "Daily",
+      "Don't know")))) %>%
+    mutate_at(vars(tobacco_last), funs(factor_keep_rename(., level_vector = c(
+      "Within the past 30 days",
+      "Between 1-3 months ago",
+      "More than 3 months ago")))) %>%
     mutate_at(vars(isi7_sri_since), funs(factor_keep_rename(., level_vector = c(
       "Less often, or to a lesser extent than before I was housed",
       "No difference",
@@ -396,6 +494,41 @@ clean_baseline <- function(baseline_data){
       "Improved")))) %>%
     mutate_at(vars(starts_with("ders_sf_")), funs(gsub("\n","",.))) %>%
     mutate_at(vars(starts_with("ders_sf_")), funs(tolower(.))) %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "00","0",.)
+    )) %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "Once","1",.)
+    )) %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "4-6","5",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "1-6","3",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "10-20","15",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "20+","20",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "1pack","1",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "None","0",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "N/A","0",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "No","0",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),funs(
+      ifelse(. == "Nothing","0",.)
+    ))  %>%
+    mutate_at(vars(starts_with("tobacco_dailyamt_"),starts_with("tobacco_weeklyamt_")),
+              funs(numeric_keep_rename(.))) %>%
     mutate_at(vars(starts_with("ders_sf_")), funs(factor_keep_rename(., level_vector = c("almost never(0-10%)",
                                                                                          "sometimes(11-35%)",
                                                                                          "about half of the time(36-65%)",
@@ -414,6 +547,32 @@ clean_baseline <- function(baseline_data){
                                                                                        "Rarely (once or twice in the past 30 days)",
                                                                                        "Sometimes (three to ten times in the past 30 days)",
                                                                                        "Often (more than ten times in the past 30 days)")))) %>%
+    mutate_at(vars(starts_with("casey_")), funs(factor_keep_rename(., level_vector = c("Mostly no",
+                                                                                       "Somewhat",
+                                                                                       "Yes",
+                                                                                       "Mostly yes")))) %>%
+    mutate_at(vars(employ_paidjobs), funs(factor_keep_rename(., level_vector = c(
+      "0","1","2","3","4","5","6 or more")))) %>%
+    mutate_at(vars(employ_ttlpaidhrs), funs(factor_keep_rename(., level_vector = c(
+      '1-5','6-10','11-15','16-20','21-25','26-30',
+      '31-35','36-40','41-45','46-50','51-55',
+      '56-60','61-65','66-70','71-75','76-80',
+      '81-85','86-90','91-95','96-100','101 or more')))) %>%
+    mutate_at(vars(ttlincome_employ), funs(factor_keep_rename(., level_vector = c(
+      'Less than $250','$251 - $500','$501 - $750','$751 - $1,000',
+      '$1,001 - $1,250','$1,251 - $1,500','$1,501 - $1,750','$1,751 - $2,000',
+      '$2,001 - $2,250','$2,251 - $2,500','$2,751 - $3,000','More than $3,000')))) %>%
+    mutate_at(vars(ttlincome_benefits), funs(factor_keep_rename(., level_vector = c(
+      'Less than $50','$50-$150','$150-$300','$300-$600','$600-$1000','$1000 or more')))) %>%
+    mutate_at(vars(ttlincome_informal), funs(factor_keep_rename(., level_vector = c(
+      '$0 - $250','$251 - $500','$501 - $750','$751 - $1,000',
+      '$1,001 - $1,250','$1,251 - $1,500','$1,501 - $1,750','$1,751 - $2,000',
+      '$2,001 - $2,250','$2,251 - $2,500','$2,751 - $3,000','More than $3,000')))) %>%
+    mutate_at(vars(health), funs(factor_keep_rename(., level_vector = c(
+      "Poor","Fair","Good","Very Good","Excellent")))) %>%
+    mutate_at(vars(ends_with("_12mo"),suic_thought,suic_attempt), funs(factor_keep_rename_yn(.))) %>%
+    mutate_at(vars(mhneed_perceive), funs(factor_keep_rename(., level_vector = c(
+      "No","Yes","Not sure","I am currently receiving treatment")))) %>%
     bind_cols(birace_baseline(.)) %>%
     bind_cols(gender_baseline(.)) %>%
     bind_cols(romance_partners_gender_baseline(.)) %>%
@@ -421,7 +580,7 @@ clean_baseline <- function(baseline_data){
     bind_cols(homeless_why_baseline(.)) %>%
     bind_cols(house_progs_baseline(.)) %>%
     bind_cols(livsit_3mo_baseline(.)) %>%
-    bind_cols(livsit_current_baseline(.)) %>%
+    #bind_cols(livsit_current_baseline(.)) %>%
     bind_cols(prep_where_baseline(.)) %>%
     bind_cols(prep_social_baseline(.)) %>%
     bind_cols(prep_barrier_baseline(.)) %>%
@@ -432,33 +591,18 @@ clean_baseline <- function(baseline_data){
     bind_cols(sex3mo_extype_baseline(.)) %>%
     bind_cols(sti_pos_baseline(.)) %>%
     bind_cols(healthcare_access_needs(.)) %>%
+    bind_cols(income_source_30day(.)) %>%
+    bind_cols(scale_phealth(.)) %>%
+    bind_cols(scale_coping(.)) %>%
+    bind_cols(tobacco_typeused(.)) %>%
     select(-gender,-duration_in_seconds,-date,-survey_type,-site_unhoused_77_text,-site_housed_77_text,-consent,
            -dob,-hisp,-site_housed,-site_unhoused,-birace,-starts_with("research_"),-starts_with("hfias_"),
            -prep_whereleard,-prep_social_who,-prep_barriers,-describe_3mopartner,-`3mosex_partgndr`,
            -`3mosex_types`,-`3mosex_cntrcptv`,-exchsex_types,-sti_pos,-q523,-romrel_sex,-romrel_ptnrsgndr,-reasonhomeless,
-           -housingprogs_ever,-uh_livsit_3mo,-uh_livsit_curr,-healthneeds) %>%
+           -housingprogs_ever,-uh_livsit_3mo,-healthneeds,-incmgen_30day,-chronicdx,-coping,-tobacco_types) %>%
     rename(baseline_id = responseid,
            demo_birace_text = birace_8_text)
   
-  
-  unique(filtered_baseline$incmgen_30day) # MULTI
-  unique(filtered_baseline$employ_paidjobs) # FACTOR
-  unique(filtered_baseline$employ_ttlpaidhrs) # FACTOR
-  unique(filtered_baseline$ttlincome_employ) # FACTOR
-  unique(filtered_baseline$ttlincome_benefits) # FACTOR
-  unique(filtered_baseline$ttlincome_informal) # FACTOR
-  unique(filtered_baseline$health) # FACTOR
-  unique(filtered_baseline$chronicdx) # MULTI
-  unique(filtered_baseline$chronicdx_23_text) # TEXT
-  unique(filtered_baseline$suic_thought) # FACTOR
-  unique(filtered_baseline$suic_attempt) # FACTOR
-  unique(filtered_baseline$med_12mo) # FACTOR
-  unique(filtered_baseline$ther_12mo) # FACTOR
-  unique(filtered_baseline$er_12mo) # FACTOR
-  unique(filtered_baseline$hospit_12mo) # FACTOR
-  unique(filtered_baseline$unmet_12mo) # FACTOR
-  unique(filtered_baseline$mhneed_perceive) # FACTOR
-  unique(filtered_baseline$coping) # MULTI
  
   old_names<- c("race","race_8_text","inschool","inschool_type","inschool_type_4_text","educ","sex","gender_6_text",
                 "sexori","sexori_6_text","sexattr_formales",
@@ -466,7 +610,7 @@ clean_baseline <- function(baseline_data){
                 "romrel_marr","romrel_curr","romrel_ptnrs","romrel_dur",
                 "firsthomeless","reasonhomeless_17_text","housingprogs_ever_20_text",
                 "timehomeless_ever","timehoused","staybeforehoused","staybeforehoused_20_text","timehomeless_beforeh","timehomeless_recent",
-                "uh_livsit_3mo_20_text","uh_livsit_curr_20_text",
+                "uh_livsit_3mo_20_text","uh_livsit_curr","uh_livsit_curr_20_text",
                 "fc_ever","fc_placements","jjs_ever","jjs_ageout","arrest_ever","jail_ever",
                 "stress_streets_1","stress_streets_2","stress_streets_3","stress_streets_4","stress_streets_5",                 
                 "stress_streets_6","stress_streets_7","stress_streets_8","stress_streets_9","stress_streets_10",
@@ -501,7 +645,7 @@ clean_baseline <- function(baseline_data){
                 "pss_1","pss_2","pss_3","pss_4",
                 "ptsd_1","ptsd_2","ptsd_3","ptsd_4",
                 "isi7_sri","isi7_sri_since","sleep_safe","sd_since","sd_sf1","sd_sf2","sd_sf3","sd_sf4",
-                "healthneeds_10_text"
+                "healthneeds_10_text","chronicdx_23_text"
                 )
   new_names <- c("demo_race","demo_race_other","demo_school","demo_school_type","demo_school_other","demo_education","demo_sex",
                  "demo_gender_text","demo_sex_ori","demo_sex_ori_other","demo_sex_attr",
@@ -512,7 +656,7 @@ clean_baseline <- function(baseline_data){
                  "history_homeless_first_time","history_homeless_why_text","history_house_progs_text",
                  "history_homeless_time_ever","history_time_housed","history_stay_prehoused","history_stay_prehoused_other","history_homeless_time_prehoused",
                  "history_homeless_time_recent",
-                 "unhoused_livsit_3mo_text","unhoused_livsit_now_text",
+                 "unhoused_livsit_3mo_text","unhoused_livsit_now","unhoused_livsit_now_text",
                  "history_foster_care_ever","history_foster_care_placement","history_jjs_ever","history_jjs_age_out",
                  "history_arrest_ever","history_jail_ever",
                  "scale_stress_streets_1","scale_stress_streets_2","scale_stress_streets_3","scale_stress_streets_4","scale_stress_streets_5",                 
@@ -557,7 +701,43 @@ clean_baseline <- function(baseline_data){
                  "sleep_daytimeimpair_current_isi7","sleep_since_housed_daytimeimpair","sleep_location_safe",
                  "sleep_since_housed_quality","sleep_disturbance_sf4a_1_quality","sleep_disturbance_sf4a_2_refresh",
                  "sleep_disturbance_sf4a_3_problem","sleep_disturbance_sf4a_4_fallslp",
-                 "healthcare_access_needs_text")
+                 "healthcare_access_needs_text","scale_phealth_text")
+  setnames(filtered_baseline,old_names,new_names)
+  
+  old_names <- drug_30
+  new_names <- c("drugs_alcohol_30day_freq","drugs_marijuana_30day_freq","drugs_meth_30day_freq",
+               "drugs_mdma_30day_freq","drugs_syntheticmj_30day_freq","drugs_hallucinogens_30day_freq",
+               "drugs_rxmisuse_30day_freq","drugs_heroin_30day_freq","drugs_cocaine_30day_freq",
+               "drugs_crack_30day_freq","drugs_inhalant_30day_freq","drugs_steroid_30day_freq",
+               "drugs_nitrous_30day_freq","drugs_ketamine_30day_freq","drugs_pcp_30day_freq",
+               "drugs_other_30day_freq")
+  setnames(filtered_baseline,old_names,new_names)
+  
+  old_names <- drugs_last
+  new_names <- c("drugs_tobacco_lastuse","drugs_alcohol_lastuse","drugs_marijuana_lastuse",
+                 "drugs_meth_lastuse","drugs_mdma_lastuse","drugs_syntheticmj_lastuse",
+                 "drugs_hallucinogens_lastuse","drugs_rxmisuse_lastuse","drugs_heroin_lastuse",
+                 "drugs_cocaine_lastuse","drugs_crack_lastuse","drugs_inhalant_lastuse","drugs_steroid_lastuse",
+                 "drugs_nitrous_lastuse","drugs_ketamine_lastuse","drugs_pcp_lastuse","drugs_other_lastuse")
+  setnames(filtered_baseline,old_names,new_names)
+  
+  old_names <- c("employ_paidjobs","employ_ttlpaidhrs","ttlincome_employ",
+                 "ttlincome_benefits","ttlincome_informal","health","mh_current",
+                 "suic_thought","suic_attempt","med_12mo","ther_12mo","er_12mo",
+                 "hospit_12mo","unmet_12mo","mhneed_perceive")
+  new_names <- c("history_employment_paidjobs","history_employment_paidhours","history_income_employment",
+                 "history_totalincome_benefits","history_totalincome_informal","history_phealth_current","history_mhealth_current",
+                 "history_suicide_thoughts","history_suicide_attempts","history_treat12mo_medical","history_treat12mo_therapy",
+                 "history_treat12mo_er","history_treat12mo_hospital","history_treat12mo_unmet","history_mhealth_needs")
+  setnames(filtered_baseline,old_names,new_names)
+  
+  setnames(filtered_baseline,tobacco_daily,new_tobacco_daily)
+  setnames(filtered_baseline,tobacco_weekly,new_tobacco_weekly)
+  setnames(filtered_baseline,tobacco_varnames,new_tobacco_varnames)
+  
+  
+  old_names <- c("casey_locuscontrol","casey_futurethink","casey_relationships","casey_modeling","casey_successrel","casey_transition","casey_pride","casey_selfefficacy")
+  new_names <- rep_varnames("scale_",old_names)
   setnames(filtered_baseline,old_names,new_names)
   
   ## VARS PRESERVED
@@ -579,6 +759,15 @@ clean_baseline <- function(baseline_data){
   attr(filtered_baseline$scale_hfias_8,"label") <- attributes(baseline_data$hfias_8)$label
   attr(filtered_baseline$scale_hfias_9,"label") <- attributes(baseline_data$hfias_9)$label
   
+  for(i in 1:8){
+    daytype <- paste0("filtered_baseline$tobacco_dailyamount_",tobacco_types[i])
+    weektype <- paste0("filtered_baseline$tobacco_weeklyamount_",tobacco_types[i])
+    olddaytype <- paste0("baseline_data$tobacco_dailyamt_",i)
+    oldweektype <- paste0("baseline_data$tobacco_weeklyamt_",i)
+    setattr(eval(parse(text = daytype)),"label",attributes(eval(parse(text = olddaytype)))$label)
+    setattr(eval(parse(text = weektype)),"label",attributes(eval(parse(text = oldweektype)))$label)
+  }
+  
   attr(filtered_baseline$demo_birace_text,"label") <- "Multi-Racial: Other Text Entry"
   attr(filtered_baseline$demo_sex_gender_min,"label") <- "Is the partcipant a sexual or gender minority?"
   attr(filtered_baseline$demo_sex_min,"label") <- "Is the partcipant a sexual identity minority? (Not Heterosexual)"
@@ -592,24 +781,103 @@ clean_baseline <- function(baseline_data){
   attr(filtered_baseline$baseline_version,"label") <- "Baseline survey version"
   attr(filtered_baseline$baseline_id,"label") <- "Baseline survery respone id"
   
+  sort(unique(filtered_baseline$sutypes_use_ever)) # MULTI
+  sort(unique(filtered_baseline$othersu_type)) # TEXT
+  sort(unique(filtered_baseline$marj_30_roa_10_text)) # TEXT
+  sort(unique(filtered_baseline$marj_amtwk_1)) # FACTOR
+  sort(unique(filtered_baseline$cocaine_30_roa)) # multi
+  sort(unique(filtered_baseline$steroid_30_roa)) # multi
+  sort(unique(filtered_baseline$ivdu_needleexh)) #yn
+  sort(unique(filtered_baseline$exch_where_7_text)) # TEXT
+  sort(unique(filtered_baseline$ivdu_reuse)) # yn
+  sort(unique(filtered_baseline$cage2))  # yn
+  sort(unique(filtered_baseline$sucost_30d_alcohol)) # factor
+  sort(unique(filtered_baseline$tech_access_noown)) #multi
+  sort(unique(filtered_baseline$cell_bill)) #multi
+  sort(unique(filtered_baseline$cel_use)) #multi
+  sort(unique(filtered_baseline$tech_barriers)) #multi
+  sort(unique(filtered_baseline$vict_ipv_perp)) #factor
+  sort(unique(filtered_baseline$gang_fmr)) #yn
+  sort(unique(filtered_baseline$streetfamily)) # yn
+  sort(unique(filtered_baseline$policein_3mo_why)) #multi
+  sort(unique(filtered_baseline$alc_30_binge_f)) #numeric
+  sort(unique(filtered_baseline$marj_30_types)) #multi
+  sort(unique(filtered_baseline$marj_freq_curr)) # factor
+  sort(unique(filtered_baseline$marj_amtwk_2)) # factor
+  sort(unique(filtered_baseline$mdma_30_roa)) # multi
+  sort(unique(filtered_baseline$pdm_30_roa)) # multi
+  sort(unique(filtered_baseline$heroin_30_roa)) #multi
+  sort(unique(filtered_baseline$ivdu_needlepurch)) #yn
+  sort(unique(filtered_baseline$ivdu_ever)) #yn
+  sort(unique(filtered_baseline$ivdu_reuse_quant)) #factor
+  sort(unique(filtered_baseline$cage1)) #yn
+  sort(unique(filtered_baseline$sucost_30d_marj))
+  sort(unique(filtered_baseline$tech_access_where))
+  sort(unique(filtered_baseline$cell_bill_7_text))
+  sort(unique(filtered_baseline$cel_use_13_text))
+  sort(unique(filtered_baseline$tech_barriers_10_text))
+  sort(unique(filtered_baseline$vict_asslt))
+  sort(unique(filtered_baseline$gang_age_1))
+  sort(unique(filtered_baseline$policeintgen))
+  sort(unique(filtered_baseline$avoidpolice))
+  sort(unique(filtered_baseline$alc_30_binge_m))
+  sort(unique(filtered_baseline$marj_30_types_5_text))
+  sort(unique(filtered_baseline$marj_hpd30d))
+  sort(unique(filtered_baseline$marj_access))
+  sort(unique(filtered_baseline$meth_30_roa))
+  sort(unique(filtered_baseline$halluc_30_types))
+  sort(unique(filtered_baseline$pdm_30_types))
+  sort(unique(filtered_baseline$othersu_30_roa))
+  sort(unique(filtered_baseline$exch_30days))
+  sort(unique(filtered_baseline$ivdu_30day))
+  sort(unique(filtered_baseline$sutx_ever))
+  sort(unique(filtered_baseline$cage3)) # yn
+  sort(unique(filtered_baseline$sucost_30d_ildrug))
+  sort(unique(filtered_baseline$tech_access_where_8_text))
+  sort(unique(filtered_baseline$cell_bill_8_text))
+  sort(unique(filtered_baseline$cell_charge))
+  sort(unique(filtered_baseline$vict_robbery))
+  sort(unique(filtered_baseline$perp_asslt))
+  sort(unique(filtered_baseline$gang_aff))
+  sort(unique(filtered_baseline$policeint_3mo)) #factor
+  sort(unique(filtered_baseline$marj_30_roa)) #multi
+  sort(unique(filtered_baseline$marj_freqaccpt)) #factor
+  sort(unique(filtered_baseline$marj_card)) #yn
+  sort(unique(filtered_baseline$crack_30_roa)) # factor
+  sort(unique(filtered_baseline$pcp_30_roa)) #factor
+  sort(unique(filtered_baseline$othersu_30_roa_5_text)) #text
+  sort(unique(filtered_baseline$exch_where)) #factor
+  sort(unique(filtered_baseline$ivdu_share)) #yn
+  sort(unique(filtered_baseline$sytx_pastyear)) #yn
+  sort(unique(filtered_baseline$cage4)) #yn
+  sort(unique(filtered_baseline$techaccess)) # multi
+  sort(unique(filtered_baseline$cell_plan)) #factor
+  sort(unique(filtered_baseline$cell_turnover)) #factor
+  sort(unique(filtered_baseline$cell_charge_access))  # multi
+  sort(unique(filtered_baseline$vict_ipv_vic)) # factor
+  sort(unique(filtered_baseline$gang_cur)) #yn
+  sort(unique(filtered_baseline$gang_aff_4_text)) #factor
+  sort(unique(filtered_baseline$policein_3mo_exp)) #factor
+  
   incomplete_name_out <- capture.output(names(select(filtered_baseline,-pid,-starts_with("demo"),-starts_with("baseline"),-starts_with("unhoused"),
                -starts_with("scale"),-starts_with("history"),-starts_with("survey"),-starts_with("sni"),-starts_with("sleep"),
-               -starts_with("healthcare"))))
-  incomplete_name_out
+               -starts_with("healthcare"),-starts_with("tobacco_"))))
+  print(incomplete_name_out)
   cat("List of variable names that are currently in progress", incomplete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/incomplete_varnames.txt", sep="\n")
   
   complete_name_out <- capture.output(names(select(filtered_baseline,pid,starts_with("demo"),starts_with("baseline"),starts_with("unhoused"),
                                                      starts_with("scale"),starts_with("history"),starts_with("survey"),starts_with("sni"),
-                                                   starts_with("sleep"),starts_with("healthcare"))))
+                                                   starts_with("sleep"),starts_with("healthcare"),starts_with("tobacco_"))))
   complete_name_out
   cat("List of variable names that are complete + SNI", complete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/complete_varnames.txt", sep="\n")
   
   
   completedsofar <- select(filtered_baseline,pid,starts_with("demo"),starts_with("baseline"),starts_with("unhoused"),
                            starts_with("scale"),starts_with("history"),starts_with("survey"),starts_with("sni"),
-                           starts_with("sleep"),starts_with("healthcare"))
+                           starts_with("sleep"),starts_with("healthcare"),starts_with("tobacco_"))
   write_dta(completedsofar,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline.dta")
-   
+  
+  return(completedsofar)
   # test <- select(filtered_baseline,pid,starts_with("survey_prep_"),starts_with("demo_"),
   #                starts_with("survey_hiv_"),starts_with("survey_sti_"),starts_with("survey_sexlife_"),
   #                starts_with("survey_preg_"),starts_with("survey_sex3mo_"),starts_with("history_"),starts_with("unhoused"))

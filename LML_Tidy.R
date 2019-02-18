@@ -37,8 +37,9 @@ id_varstub <- "lml_com$"
 filename_varstub <- "PromptResponses_EMA.csv$"
 
 dummy3 <- function() {
+  enrollment_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/_Raw Data/TSV"
   data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
-  enroll_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level/enroll_sheet.csv"
+  #enroll_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level/enroll_sheet.csv"
   
   ema <- tidy_ema(data_dirname, wockets_dirname,manual_dirname,TRUE,FALSE,FALSE,TRUE)
   daily <- tidy_daily(data_dirname,wockets_dirname,manual_dirname,"",TRUE,TRUE,TRUE)
@@ -59,12 +60,32 @@ dummy3 <- function() {
   write_dta(ema_new,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Team/Sara/ema_data.dta")
   #write_dta(ema_new,"C:/Users/dzubur/Desktop/ema_data.dta")
   
+  ## NEW UNALTERED ALGORITHM
+  
+  daily_sleep_new <- daily %>%
+    filter(prompt_status == "Completed") %>%
+    select(subject_id,prompt_date,wake_hour,wake_minute,sleep_hour,sleep_minute,no_sleep) %>%
+    mutate(date_now = as.Date(prompt_date, origin = "1970-01-01", tz = "America/Los_Angeles"),
+           date_yesterday = date_now - days(),
+           reverse_code = ifelse((wake_hour + wake_minute/60) > (sleep_hour + sleep_minute/60),1,0)) %>%
+    mutate(wake_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(wake_hour,2,pad="0"),":",str_pad(wake_minute,2,pad = "0")),
+           sleep_time = paste0(format(date_yesterday,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0"))) %>%
+    mutate_at(vars(ends_with("time")),funs(as.POSIXct(., format = "%Y-%m-%d %H:%M", origin = "1970-01-01", tz = "America/Los_Angeles"))) %>%
+    mutate(wake_sleep = difftime(wake_time,sleep_time,units = "hours"))
+  trust_sleep_new <- daily_sleep_new %>%
+    filter(as.numeric(wake_sleep)<= 14 & as.numeric(wake_sleep)>= 2)
+  donttrust_sleep_new <- daily_sleep_new %>%
+    filter(as.numeric(wake_sleep) > 14 | as.numeric(wake_sleep) < 2)
   
   daily_sleep <- daily %>%
     filter(prompt_status == "Completed") %>%
     select(subject_id,prompt_date,wake_hour,wake_minute,sleep_hour,sleep_minute,no_sleep) %>%
     mutate(date_now = as.Date(prompt_date, origin = "1970-01-01", tz = "America/Los_Angeles"),
-           date_yesterday = date_now - days()) %>%
+           date_yesterday = date_now - days(),
+           og_wake_hour = wake_hour,
+           og_sleep_hour = sleep_hour,
+           og_wake_min = wake_minute,
+           og_sleep_min = sleep_minute) %>%
     mutate(wake_hour = ifelse(wake_hour > 12, wake_hour - 12, wake_hour),
            sleep_hour = ifelse(sleep_hour > 12, sleep_hour - 12, sleep_hour)) %>%
     mutate(wake_am_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(wake_hour,2,pad="0"),":",str_pad(wake_minute,2,pad = "0")," AM"),
@@ -80,6 +101,10 @@ dummy3 <- function() {
            ap_bin = ifelse(wakeam_sleeppm > 0 & wakeam_sleeppm < 24,1,0),
            pa_bin = ifelse(wakepm_sleepam > 0 & wakepm_sleepam < 24,1,0),
            pp_bin = ifelse(wakepm_sleeppm > 0 & wakepm_sleeppm < 24,1,0))
+  
+  writeout <- daily_sleep %>%
+    left_join(enroll,by=c("subject_id")) %>%
+    filter(enroll_start <= prompt_date & enroll_end >= prompt_date) 
   
   sleep_hour <- daily %>%
     select(subject_id,prompt_date,prompt_time,prompt_status) %>%
@@ -218,7 +243,7 @@ dummy3 <- function() {
     }
   }
   
-  enroll <- enrollment_dates(data_dirname) %>%
+  enroll <- clean_enrollment(enrollment_dirname) %>%
     mutate(subject_id = as.character(file_id)) %>%
     select(-file_id)
     
@@ -293,7 +318,7 @@ dummy3 <- function() {
 dummy2 <- function(){
 daily <- tidy_daily(data_dirname, wockets_dirname, manual_dirname, sni_stata_filename)
 new_gps <- tidy_gps(data_dirname, wockets_dirname, manual_dirname)
-enroll <- enrollment_dates(data_dirname)
+enroll <- clean_enrollment(enrollment_dirname)
 new_ema <- new_gps %>%
   mutate(file_id = as.integer(system_file)) %>%
   left_join(enroll, by = "file_id")
