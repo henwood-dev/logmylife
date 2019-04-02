@@ -118,30 +118,6 @@ generate_missing_column <- function(data_name, column_names){
   return(return_data_name)
 }
 
-clean_enrollment <- function(enrollment_dirname){
-  enrollment <- read_csv(paste(enrollment_dirname,"enrollment.csv", sep = "/")) %>%
-    select(file_id = PID_master,start_date = appstartdate,stop_date = appenddate,
-           end_date = Date_Visit2, hours_up = 'wake-sleepDIF', true_wake = waketime,
-           true_sleep = sleeptime) %>%
-    mutate(start_date = as.Date(start_date, format = "%m/%d/%y", tz = "America/Los Angeles", origin = "1970-01-01"),
-           stop_date = as.Date(stop_date, format = "%m/%d/%y", tz = "America/Los Angeles", origin = "1970-01-01"),
-           end_date = as.Date(end_date, format = "%m/%d/%y", tz = "America/Los Angeles", origin = "1970-01-01"),
-           hours_up = as.integer(str_split_fixed(hours_up,":",2)[,1]) + 
-             ifelse(str_split_fixed(hours_up,":",2)[,2] == "30",.5,0)) %>%
-    filter(!is.na(start_date)) %>%
-    mutate(true_end = ifelse(is.na(end_date),stop_date,ifelse(
-      end_date < stop_date,end_date,stop_date)),
-      true_end = as.Date(true_end, origin = "1970-01-01", tz = "America/Los Angeles"),
-      ema_days = true_end - start_date,
-      hours_down = 24-hours_up) %>%
-    filter(as.integer(file_id)<3000) %>%
-    select(file_id,enroll_start = start_date,enroll_end = true_end)
-  
-  write_csv(as.data.frame(enrollment$file_id),paste(enrollment_dirname,"pids.txt",sep = "/"),col_names = FALSE)
-  
-  return(enrollment)
-}
-
 read_file_list <- function(data_dirname, 
                            midpoint_dirname, 
                            end_dirname,

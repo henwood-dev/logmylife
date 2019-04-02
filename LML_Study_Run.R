@@ -10,9 +10,9 @@ person <- "lmldata"
 
 if(eldin){
   ## Write the main data directory where stuff is stored
-  data_dirname <- "C:/Users/dzubur/Desktop"
+  data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
   ## Write the FILEPATH of the Fusion directory
-  export_dirname <- "C:/Users/dzubur/Desktop/Fusion"
+  export_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Study Data/Fusion"
   ## Write the name, not path, to your wockets downloads folder here:
   wockets_dirname <-"Wockets"
   ## Write the name, not path, to your manual download folder here, otherwise leave as ""
@@ -34,20 +34,27 @@ skip_manual <- TRUE
 skip_sni = TRUE
 ## Location of SNI filename (usually default, doesn't matter if you're skipping)
 sni_stata_filename <- "SNI.dta"
+retain_names <- TRUE
+fast_mode <- TRUE
+
 
 did_export <- export_person_level(data_dirname = data_dirname,
-                    wockets_dirname = wockets_dirname,
-                    manual_dirname = manual_dirname,
-                    skip_manual = skip_manual,
-                    skip_sni = skip_sni,
-                    sni_stata_filename = sni_stata_filename,
-                    export_dirname = export_dirname)
+                                  wockets_dirname = wockets_dirname,
+                                  manual_dirname = manual_dirname,
+                                  skip_manual = skip_manual,
+                                  skip_sni = skip_sni,
+                                  sni_stata_filename = sni_stata_filename,
+                                  export_dirname = export_dirname,
+                                  retain_names = retain_names,
+                                  fast_mode = fast_mode)
+
 
 gps_ema <- tidy_gps(data_dirname = data_dirname,
                     wockets_dirname = wockets_dirname,
                     manual_dirname = manual_dirname,
                     skip_manual = skip_manual,
-                    retain_names = TRUE)
+                    retain_names = retain_names,
+                    fast_mode = fast_mode)
 
 fusion_ema <- gps_fusion_adapter(new_gps = gps_ema, export_dirname = export_dirname)
 

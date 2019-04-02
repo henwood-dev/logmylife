@@ -20,13 +20,62 @@ select <- dplyr::select
 # Imports
 source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 
+hiv_posmeds_whynot <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,survey_hiv_posmeds_whynot = `hivp_meds_whynot`)
+  variable_prefix <- "survey_hiv_posmeds_whynot"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `survey_hiv_posmeds_whynot_Don't want anyone to know I am taking the medication/stigma associated with the condition` = "survey_hiv_posmeds_whynot_stigma",
+    `survey_hiv_posmeds_whynot_I think it would be too expensive` = "survey_hiv_posmeds_whynot_price",
+    `survey_hiv_posmeds_whynot_I'm concerned about side effects` = "survey_hiv_posmeds_whynot_sidefx",
+    `survey_hiv_posmeds_whynot_It's too difficult to go to the doctor to get a prescription` = "survey_hiv_posmeds_whynot_rxhard",
+    `survey_hiv_posmeds_whynot_It's too much effort to take a pill every day` = "survey_hiv_posmeds_whynot_effort",
+    `survey_hiv_posmeds_whynot_Other (please specify)` = "survey_hiv_posmeds_whynot_other"
+  )
+  
+  new_labels <- c(
+    survey_hiv_posmeds_whynot_stigma = "What are some of the reasons you are not taking medications to help you manage your HIV?: Don't want anyone to know I am taking the medication/stigma associated with the condition",
+    survey_hiv_posmeds_whynot_price = "What are some of the reasons you are not taking medications to help you manage your HIV?: I think it would be too expensive",
+    survey_hiv_posmeds_whynot_sidefx = "What are some of the reasons you are not taking medications to help you manage your HIV?: I'm concerned about side effects",
+    survey_hiv_posmeds_whynot_rxhard = "What are some of the reasons you are not taking medications to help you manage your HIV?: It's too difficult to go to the doctor to get a prescription",
+    survey_hiv_posmeds_whynot_effort = "What are some of the reasons you are not taking medications to help you manage your HIV?: It's too much effort to take a pill every day",
+    survey_hiv_posmeds_whynot_other = "What are some of the reasons you are not taking medications to help you manage your HIV?: Other"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+hiv_postx_why <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,survey_hiv_postx_why = `hivp_tx_why`)
+  variable_prefix <- "survey_hiv_postx_why"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `survey_hiv_postx_why_Don't want anyone to know/stigma associated with the condition` = "survey_hiv_postx_why_stigma",
+    `survey_hiv_postx_why_I can manage my HIV without a doctor's involvement` = "survey_hiv_postx_why_doctor",
+    `survey_hiv_postx_why_I don't have health coverage` = "survey_hiv_postx_why_insurance",
+    `survey_hiv_postx_why_It's too much effort to get to a clinic or doctor's office` = "survey_hiv_postx_why_effort"
+  )
+  
+  new_labels <- c(
+    survey_hiv_postx_why_stigma = "What are some of the reasons that you are not currently seeing a doctor or going to a clinic to help you manage your HIV?: Do not want anyone to know",
+    survey_hiv_postx_why_doctor = "What are some of the reasons that you are not currently seeing a doctor or going to a clinic to help you manage your HIV?: Do not need doctors involvement",
+    survey_hiv_postx_why_insurance = "What are some of the reasons that you are not currently seeing a doctor or going to a clinic to help you manage your HIV?: No health coverage",
+    survey_hiv_postx_why_effort = "What are some of the reasons that you are not currently seeing a doctor or going to a clinic to help you manage your HIV?: Too much effort"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
 template <- function(filtered_baseline){
   filtered_data <- rename(filtered_baseline,scale_phealth = `chronicdx`) %>%
-    mutate(scale_phealth = gsub(', Chronic',' Chronic',scale_phealth)) %>%
-    mutate(scale_phealth = gsub(', Chronic Bronchitis',' chronic bronchitis',scale_phealth)) %>%
-    mutate(scale_phealth = gsub(', Emphysema',' emphysema',scale_phealth)) %>%
-    mutate(scale_phealth = gsub(', COPD',' COPD',scale_phealth)) %>%
-    mutate(scale_phealth = gsub(', or',' or',scale_phealth)) %>%
     mutate(scale_phealth = gsub(', such',' such',scale_phealth)) %>%
     mutate(scale_phealth = gsub(', heart',' heart',scale_phealth)) %>%
     mutate(scale_phealth = gsub(', arrhythmia',' arrhythmia',scale_phealth))
@@ -44,6 +93,774 @@ template <- function(filtered_baseline){
   
   
   return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+
+survey_testever <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,survey_testever = `sni_testever`)
+  variable_prefix <- "survey_testever"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `survey_testever_Been tested for HIV` = "survey_testever_hiv",
+    `survey_testever_Been tested for sexually transmitted diseases or infections (STD or STIs)` = "survey_testever_std",
+    `survey_testever_None of the above` = "survey_testever_none"
+  )
+  
+  new_labels <- c(
+    survey_testever_hiv = "Which of the following have you done in your lifetime?: Been tested for HIV",
+    survey_testever_std = "Which of the following have you done in your lifetime?: Been tested for STIs or STDs",
+    survey_testever_none = "Which of the following have you done in your lifetime?: None of the above"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+
+mse_engage <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,survey_mse_engage = `mse_progengage`) %>%
+    mutate(survey_mse_engage = gsub(', college',' college',survey_mse_engage))
+  variable_prefix <- "survey_mse_engage"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `survey_mse_engage_Art or music groups` = "survey_mse_engage_art",
+    `survey_mse_engage_Counseling and support groups` = "survey_mse_engage_support",
+    `survey_mse_engage_Education programs (GED college)` = "survey_mse_engage_school",
+    `survey_mse_engage_I have not participated in any meaningful activities through youth services` = "survey_mse_engage_none",
+    `survey_mse_engage_Job or college fair or tour` = "survey_mse_engage_jobfair",
+    `survey_mse_engage_Job readiness training/employment services` = "survey_mse_engage_training",
+    `survey_mse_engage_Legal clinic` = "survey_mse_engage_legal",
+    `survey_mse_engage_Other (please specify)` = "survey_mse_engage_other",
+    `survey_mse_engage_Paid internship/work experience` = "survey_mse_engage_work",
+    `survey_mse_engage_Pregnancy and parenting classes` = "survey_mse_engage_parent",
+    `survey_mse_engage_Yoga or meditation` = "survey_mse_engage_yoga"
+  )
+  
+  new_labels <- c(
+    survey_mse_engage_art = "During my time in youth services, I participated in one or more meaningful activities, such as: Art or music groups",
+    survey_mse_engage_support = "During my time in youth services, I participated in one or more meaningful activities, such as: Counseling and support groups",
+    survey_mse_engage_school = "During my time in youth services, I participated in one or more meaningful activities, such as: Education programs (GED college)",
+    survey_mse_engage_none = "During my time in youth services, I participated in one or more meaningful activities, such as: I have not participated in any meaningful activities through youth services",
+    survey_mse_engage_jobfair = "During my time in youth services, I participated in one or more meaningful activities, such as: Job or college fair or tour",
+    survey_mse_engage_training = "During my time in youth services, I participated in one or more meaningful activities, such as: Job readiness training/employment services",
+    survey_mse_engage_legal = "During my time in youth services, I participated in one or more meaningful activities, such as: Legal clinic",
+    survey_mse_engage_other = "During my time in youth services, I participated in one or more meaningful activities, such as: Other (please specify)",
+    survey_mse_engage_work = "During my time in youth services, I participated in one or more meaningful activities, such as: Paid internship/work experience",
+    survey_mse_engage_parent = "During my time in youth services, I participated in one or more meaningful activities, such as: Pregnancy and parenting classes",
+    survey_mse_engage_yoga = "During my time in youth services, I participated in one or more meaningful activities, such as: Yoga or meditation"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+  
+needle_access <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_needle_access = `exch_where`)
+  variable_prefix <- "history_needle_access"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_needle_access_A drop-in center like Safe Place for Youth` = "history_needle_dropin",
+    `history_needle_access_A free health clinic` = "history_needle_freeclinic",
+    `history_needle_access_A health center or appointment specific for treating HIV or Hepatitis C` = "history_needle_access_hivhepc",
+    `history_needle_access_A mobile clinic` = "history_needle_mobileclinic",
+    `history_needle_access_Hospital` = "history_needle_hospital",
+    `history_needle_access_Other (please specify)` = "history_needle_other",
+    `history_needle_access_Public health center` = "history_needle_publichealth"
+  )
+  
+  new_labels <- c(
+    history_needle_dropin = "Where have you ever accessed clean needles and/or exchanged used needles?: A drop-in center like Safe Place for Youth",
+    history_needle_freeclinic = "Where have you ever accessed clean needles and/or exchanged used needles?: A free health clinic",
+    history_needle_access_hivhepc = "Where have you ever accessed clean needles and/or exchanged used needles?: A health center or appointment specific for treating HIV or Hepatitis C",
+    history_needle_mobileclinic = "Where have you ever accessed clean needles and/or exchanged used needles?: A mobile clinic",
+    history_needle_hospital = "Where have you ever accessed clean needles and/or exchanged used needles?: Hospital",
+    history_needle_other = "Where have you ever accessed clean needles and/or exchanged used needles?: Other (please specify)",
+    history_needle_publichealth = "Where have you ever accessed clean needles and/or exchanged used needles?: Public health center"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+techuse_accessonly <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,techuse_accessonly = `tech_access_noown`) %>%
+    mutate(techuse_accessonly = gsub(', or',' or',techuse_accessonly)) %>%
+    mutate(techuse_accessonly = gsub(', Samsung',' Samsung',techuse_accessonly)) 
+  variable_prefix <- "techuse_accessonly"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `techuse_accessonly_A cell phone that is not a smartphone` = "techuse_accessonly_basicphone",
+    `techuse_accessonly_A desktop or laptop computer` = "techuse_accessonly_computer",
+    `techuse_accessonly_A smartphone` = "techuse_accessonly_smartphone",
+    `techuse_accessonly_A tablet computer like an iPad Samsung Galaxy Tablet or Kindle Fire` = "techuse_accessonly_tablet",
+    `techuse_accessonly_None` = "techuse_accessonly_none"
+  )
+  
+  new_labels <- c(
+    techuse_accessonly_basicphone = "Which of the following items do you have access to, but do not personally own?: A cell phone that is not a smartphone",
+    techuse_accessonly_computer = "Which of the following items do you have access to, but do not personally own?: A desktop or laptop computer",
+    techuse_accessonly_smartphone = "Which of the following items do you have access to, but do not personally own?: A smartphone",
+    techuse_accessonly_tablet = "Which of the following items do you have access to, but do not personally own?: A tablet computer like an iPad",
+    techuse_accessonly_none = "Which of the following items do you have access to, but do not personally own?: None"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+techuse_cellbill <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,techuse_cellbill = `cell_bill`)
+  variable_prefix <- "techuse_cellbill"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `techuse_cellbill_Another family member of mine (please list):` = "techuse_cellbill_otherfamily",
+    `techuse_cellbill_I do` = "techuse_cellbill_self",
+    `techuse_cellbill_My boss` = "techuse_cellbill_boss",
+    `techuse_cellbill_My boyfriend/girlfriend/significant other` = "techuse_cellbill_partner",
+    `techuse_cellbill_My brother/sister` = "techuse_cellbill_sibling",
+    `techuse_cellbill_My friend` = "techuse_cellbill_friend",
+    `techuse_cellbill_My parent` = "techuse_cellbill_parent",
+    `techuse_cellbill_Other (please list):` = "techuse_cellbill_other"
+  )
+  
+  new_labels <- c(
+    techuse_cellbill_otherfamily = "Who pays your cell phone bill?: Another family member of mine (please list):",
+    techuse_cellbill_self = "Who pays your cell phone bill?: I do",
+    techuse_cellbill_boss = "Who pays your cell phone bill?: My boss",
+    techuse_cellbill_partner = "Who pays your cell phone bill?: My boyfriend/girlfriend/significant other",
+    techuse_cellbill_sibling = "Who pays your cell phone bill?: My brother/sister",
+    techuse_cellbill_friend = "Who pays your cell phone bill?: My friend",
+    techuse_cellbill_parent = "Who pays your cell phone bill?: My parent",
+    techuse_cellbill_other = "Who pays your cell phone bill?: Other (please list):"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+techuse_chargeaccess <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,techuse_chargeaccess = `cell_charge_access`) %>%
+    mutate(techuse_chargeaccess = gsub(', c',' c',techuse_chargeaccess)) %>%
+    mutate(techuse_chargeaccess = gsub(', s',' s',techuse_chargeaccess)) 
+  variable_prefix <- "techuse_chargeaccess"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `techuse_chargeaccess_Family member of relative’s apartment/house` = "techuse_chargeaccess_familyhouse",
+    `techuse_chargeaccess_Friend or someone’s apartment/house` = "techuse_chargeaccess_friendhouse",
+    `techuse_chargeaccess_I do not need electricity` = "techuse_chargeaccess_noneed",
+    `techuse_chargeaccess_My place of stay` = "techuse_chargeaccess_myplace",
+    `techuse_chargeaccess_Power outlet on the outside of a building` = "techuse_chargeaccess_outside",
+    `techuse_chargeaccess_Public library` = "techuse_chargeaccess_library",
+    `techuse_chargeaccess_Public space with WiFi access (restaurant store coffee shop)` = "techuse_chargeaccess_publicspace",
+    `techuse_chargeaccess_School` = "techuse_chargeaccess_school",
+    `techuse_chargeaccess_Work` = "techuse_chargeaccess_work",
+    `techuse_chargeaccess_Youth service agency` = "techuse_chargeaccess_ysagency"
+  )
+  
+  new_labels <- c(
+    techuse_chargeaccess_familyhouse = "Where do you get access to electricity?: Family member of relative’s apartment/house",
+    techuse_chargeaccess_friendhouse = "Where do you get access to electricity?: Friend or someone’s apartment/house",
+    techuse_chargeaccess_noneed = "Where do you get access to electricity?: I do not need electricity",
+    techuse_chargeaccess_myplace = "Where do you get access to electricity?: My place of stay",
+    techuse_chargeaccess_outside = "Where do you get access to electricity?: Power outlet on the outside of a building",
+    techuse_chargeaccess_library = "Where do you get access to electricity?: Public library",
+    techuse_chargeaccess_publicspace = "Where do you get access to electricity?: Public space with WiFi access (restaurant store coffee shop)",
+    techuse_chargeaccess_school = "Where do you get access to electricity?: School",
+    techuse_chargeaccess_work = "Where do you get access to electricity?: Work",
+    techuse_chargeaccess_ysagency = "Where do you get access to electricity?: Youth service agency"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+techuse_celluse <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,techuse_celluse = `cel_use`) %>%
+    mutate(techuse_celluse = gsub(', drop',' drop',techuse_celluse)) %>%
+    mutate(techuse_celluse = gsub(', Apple',' Apple',techuse_celluse)) %>%
+    mutate(techuse_celluse = gsub(', etc',' etc',techuse_celluse)) %>%
+    mutate(techuse_celluse = gsub(', food',' food',techuse_celluse)) %>%
+    mutate(techuse_celluse = gsub(', Grindr',' Grindr',techuse_celluse)) %>%
+    mutate(techuse_celluse = gsub(', Instagram',' Instagram',techuse_celluse)) %>%
+    mutate(techuse_celluse = gsub(', OkCupid',' OkCupid',techuse_celluse)) %>%
+    mutate(techuse_celluse = gsub(', Twitter',' Twitter',techuse_celluse)) 
+  variable_prefix <- "techuse_celluse"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `techuse_celluse_Other (please specify):` = "techuse_celluse_other",
+    `techuse_celluse_To browse the Internet` = "techuse_celluse_internet",
+    `techuse_celluse_To call/text family` = "techuse_celluse_family",
+    `techuse_celluse_To call/text friends` = "techuse_celluse_friends",
+    `techuse_celluse_To check my email/write emails` = "techuse_celluse_email",
+    `techuse_celluse_To check my social media accounts (Facebook Twitter Instagram etc.)` = "techuse_celluse_socialmedia",
+    `techuse_celluse_To listen to music` = "techuse_celluse_music",
+    `techuse_celluse_To look for employment` = "techuse_celluse_jobs",
+    `techuse_celluse_To look for support services (shelters drop-in centers food pantries etc.)` = "techuse_celluse_services",
+    `techuse_celluse_To look up directions/transportation options (Google Maps Apple Maps etc.)` = "techuse_celluse_directions",
+    `techuse_celluse_To make emergency phone calls only` = "techuse_celluse_emergency",
+    `techuse_celluse_To stream/watch videos` = "techuse_celluse_videos",
+    `techuse_celluse_To use a dating app (Tinder Grindr OkCupid etc.)` = "techuse_celluse_datingapps"
+  )
+  
+  new_labels <- c(
+    techuse_celluse_other = "How do you use your phone?: Other (please specify):",
+    techuse_celluse_internet = "How do you use your phone?: To browse the Internet",
+    techuse_celluse_family = "How do you use your phone?: To call/text family",
+    techuse_celluse_friends = "How do you use your phone?: To call/text friends",
+    techuse_celluse_email = "How do you use your phone?: To check my email/write emails",
+    techuse_celluse_socialmedia = "How do you use your phone?: To check my social media accounts (Facebook Twitter Instagram etc.)",
+    techuse_celluse_music = "How do you use your phone?: To listen to music",
+    techuse_celluse_jobs = "How do you use your phone?: To look for employment",
+    techuse_celluse_services = "How do you use your phone?: To look for support services (shelters drop-in centers food pantries etc.)",
+    techuse_celluse_directions = "How do you use your phone?: To look up directions/transportation options (Google Maps Apple Maps etc.)",
+    techuse_celluse_emergency = "How do you use your phone?: To make emergency phone calls only",
+    techuse_celluse_videos = "How do you use your phone?: To stream/watch videos",
+    techuse_celluse_datingapps = "How do you use your phone?: To use a dating app (Tinder Grindr OkCupid etc.)"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+techuse_barriers <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,techuse_barriers = `tech_barriers`) %>%
+    mutate(techuse_barriers = gsub(', food',' food',techuse_barriers)) %>%
+    mutate(techuse_barriers = gsub(', etc',' etc',techuse_barriers)) %>%
+    mutate(techuse_barriers = gsub(', drop',' drop',techuse_barriers))
+  variable_prefix <- "techuse_barriers"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `techuse_barriers_It would be easier to access emergency services` = "techuse_barriers_emergency",
+    `techuse_barriers_It would be easier to date/meet people` = "techuse_barriers_date",
+    `techuse_barriers_It would be easier to find employment` = "techuse_barriers_jobs",
+    `techuse_barriers_It would be easier to find my way around and look up transportation options/times` = "techuse_barriers_transport",
+    `techuse_barriers_It would be easier to find support services (shelters drop-in centers food pantries etc.)` = "techuse_barriers_services",
+    `techuse_barriers_It would be easier to keep in touch with family` = "techuse_barriers_family",
+    `techuse_barriers_It would be easier to keep in touch with friends` = "techuse_barriers_friends",
+    `techuse_barriers_It would be easier to listen to music` = "techuse_barriers_music",
+    `techuse_barriers_It would be easier to watch videos` = "techuse_barriers_videos",
+    `techuse_barriers_Other (please specify):` = "techuse_barriers_other"
+  )
+  
+  new_labels <- c(
+    techuse_barriers_emergency = "In what ways do you think owning a phone would make life easier?: It would be easier to access emergency services",
+    techuse_barriers_date = "In what ways do you think owning a phone would make life easier?: It would be easier to date/meet people",
+    techuse_barriers_jobs = "In what ways do you think owning a phone would make life easier?: It would be easier to find employment",
+    techuse_barriers_transport = "In what ways do you think owning a phone would make life easier?: It would be easier to find my way around and look up transportation options/times",
+    techuse_barriers_services = "In what ways do you think owning a phone would make life easier?: It would be easier to find support services (shelters drop-in centers food pantries etc.)",
+    techuse_barriers_family = "In what ways do you think owning a phone would make life easier?: It would be easier to keep in touch with family",
+    techuse_barriers_friends = "In what ways do you think owning a phone would make life easier?: It would be easier to keep in touch with friends",
+    techuse_barriers_music = "In what ways do you think owning a phone would make life easier?: It would be easier to listen to music",
+    techuse_barriers_videos = "In what ways do you think owning a phone would make life easier?: It would be easier to watch videos",
+    techuse_barriers_other = "In what ways do you think owning a phone would make life easier?: Other (please specify):"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+police_reason <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_police_reason = `policein_3mo_why`)
+  variable_prefix <- "history_police_reason"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_police_reason_I called them for myself` = "history_police_callself",
+    `history_police_reason_I called them on behalf of someone else` = "history_police_callother",
+    `history_police_reason_I was stopped because of who I am` = "history_police_stopwhoiam",
+    `history_police_reason_I was stopped for a suspected crime` = "history_police_stopcrime",
+    `history_police_reason_I was stopped for no apparent reason` = "history_police_stopnoreason",
+    `history_police_reason_Other` = "history_police_other"
+  )
+  
+  new_labels <- c(
+    history_police_callself = "In what context(s) have you interacted with police in the past 3 months?: I called them for myself",
+    history_police_callother = "In what context(s) have you interacted with police in the past 3 months?: I called them on behalf of someone else",
+    history_police_stopwhoiam = "In what context(s) have you interacted with police in the past 3 months?: I was stopped because of who I am",
+    history_police_stopcrime = "In what context(s) have you interacted with police in the past 3 months?: I was stopped for a suspected crime",
+    history_police_stopnoreason = "In what context(s) have you interacted with police in the past 3 months?: I was stopped for no apparent reason",
+    history_police_other = "In what context(s) have you interacted with police in the past 3 months?: Other"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+marijuana_type <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,drugs_marijuana_type = `marj_30_types`) %>%
+    mutate(drugs_marijuana_type = gsub('\"','',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub('”','',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub('“','',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub(', b',' b',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub(', d',' d',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub(', e',' e',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub(', f',' f',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub(', h',' h',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub(', s',' s',drugs_marijuana_type)) %>%
+    mutate(drugs_marijuana_type = gsub(', w',' w',drugs_marijuana_type)) 
+  variable_prefix <- "drugs_marijuana_type"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `drugs_marijuana_type_Concentrates (i.e. hashish hash oil wax shatter dabs etc.)` = "drugs_marijuana_type_wax",
+    `drugs_marijuana_type_Dried plant material (i.e. bud flowers herbs etc.)` = "drugs_marijuana_type_dry",
+    `drugs_marijuana_type_Edibles/drinkables (homemade or bought at a dispensary/store)` = "drugs_marijuana_type_edibles",
+    `drugs_marijuana_type_Other type(s) (please specify)` = "drugs_marijuana_type_other",
+    `drugs_marijuana_type_Spray/drops` = "drugs_marijuana_type_spray"
+  )
+  
+  new_labels <- c(
+    drugs_marijuana_type_wax = "What are the different forms of marijuana you used in the past 30 days?: Concentrates (i.e. hashish hash oil wax shatter dabs etc.)",
+    drugs_marijuana_type_dry = "What are the different forms of marijuana you used in the past 30 days?: Dried plant material (i.e. bud flowers herbs etc.)",
+    drugs_marijuana_type_edibles = "What are the different forms of marijuana you used in the past 30 days?: Edibles/drinkables (homemade or bought at a dispensary/store)",
+    drugs_marijuana_type_other = "What are the different forms of marijuana you used in the past 30 days?: Other type(s) (please specify)",
+    drugs_marijuana_type_spray = "What are the different forms of marijuana you used in the past 30 days?: Spray/drops"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+techuse_locations <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,techuse_locations = `tech_access_where`)
+  variable_prefix <- "techuse_locations"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `techuse_locations_Borrowed from a friend` = "techuse_locations_friend",
+    `techuse_locations_Internet café` = "techuse_locations_café",
+    `techuse_locations_Public library` = "techuse_locations_library",
+    `techuse_locations_Where I’m staying` = "techuse_locations_home",
+    `techuse_locations_Youth service agency` = "techuse_locations_ysagency",
+    `techuse_locations_Family (biological or foster)` = "techuse_locations_family",
+    `techuse_locations_Other (please specify)` = "techuse_locations_other",
+    `techuse_locations_School` = "techuse_locations_school",
+    `techuse_locations_Work` = "techuse_locations_work"
+  )
+  
+  new_labels <- c(
+    techuse_locations_friend = "Where do you get access to those items selected above?: Borrowed from a friend",
+    techuse_locations_café = "Where do you get access to those items selected above?: Internet café",
+    techuse_locations_library = "Where do you get access to those items selected above?: Public library",
+    techuse_locations_home = "Where do you get access to those items selected above?: Where I’m staying",
+    techuse_locations_ysagency = "Where do you get access to those items selected above?: Youth service agency",
+    techuse_locations_family = "Where do you get access to those items selected above?: Family (biological or foster)",
+    techuse_locations_other = "Where do you get access to those items selected above?: Other (please specify)",
+    techuse_locations_school = "Where do you get access to those items selected above?: School",
+    techuse_locations_work = "Where do you get access to those items selected above?: Work"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+marijuana_access <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,drugs_marijuana_access = `marj_access`) %>%
+    mutate(drugs_marijuana_access = gsub(', or',' or',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(', friend',' friend',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(', family',' family',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(',,',',',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(', ,',',',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(';','',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub('/delivery service','',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub('/collective storefront','',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub('/collective','',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub('/dispensary','',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(' or delivery service','',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(' or recreational','',drugs_marijuana_access)) %>%
+    mutate(drugs_marijuana_access = gsub(' medical','',drugs_marijuana_access)) 
+  variable_prefix <- "drugs_marijuana_access"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `drugs_marijuana_access_A drug dealer friend family member or someone else obtained it from a source other than a marijuana dispensary` = "drugs_marijuana_access_othersourcerec",
+    #`drugs_marijuana_access_A drug dealer friend family member or someone else obtained it from a source other than a medical marijuana dispensary/delivery service` = "drugs_marijuana_access_othersourcemed",
+    `drugs_marijuana_access_A friend gave it to me for free` = "drugs_marijuana_access_free",
+    `drugs_marijuana_access_Click to write Choice 6` = "drugs_marijuana_access_choice6",
+    `drugs_marijuana_access_Click to write Choice 7` = "drugs_marijuana_access_choice7",
+    `drugs_marijuana_access_Click to write Choice 8` = "drugs_marijuana_access_choice8",
+    `drugs_marijuana_access_Dealer (bought informally)` = "drugs_marijuana_access_dealerinformal",
+    `drugs_marijuana_access_Drug dealer bought it for me from a marijuana dispensary` = "drugs_marijuana_access_dealerdispensemedonly",
+    #`drugs_marijuana_access_Drug dealer bought it for me from a medical or recreational marijuana dispensary/delivery service` = "drugs_marijuana_access_dealerdispensemedrec",
+    `drugs_marijuana_access_Family member obtained it for me from a marijuana dispensary` = "drugs_marijuana_access_familymedonly",
+    #`drugs_marijuana_access_Family member obtained it for me from a medical or recreational marijuana dispensary/delivery service` = "drugs_marijuana_access_familymedorrec",
+    `drugs_marijuana_access_Friend obtained it for me from a marijuana dispensary` = "drugs_marijuana_access_friendmedonly",
+    #`drugs_marijuana_access_Friend obtained it for me from a medical or recreational marijuana dispensary/delivery service` = "drugs_marijuana_access_friendmedorrec",
+    `drugs_marijuana_access_I bought from a marijuana delivery service` = "drugs_marijuana_access_selfmedicaldelivery",
+    `drugs_marijuana_access_I bought from a marijuana dispensary` = "drugs_marijuana_access_selfmedicalbm",
+    `drugs_marijuana_access_I bought from a recreational marijuana shop` = "drugs_marijuana_access_selfrecreational",
+    #`drugs_marijuana_access_I bought from a recreational marijuana shop/dispensary/collective or delivery service` = "drugs_marijuana_access_selfrecreationaldelivery",
+    `drugs_marijuana_access_I have grown my own plants` = "drugs_marijuana_access_grown",
+    `drugs_marijuana_access_Other (please specify)` = "drugs_marijuana_access_other"
+  )
+  
+  new_labels <- c(
+    drugs_marijuana_access_othersourcerec = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: A drug dealer friend family member or someone else obtained it from a source other than a marijuana dispensary/delivery service",
+    #drugs_marijuana_access_othersourcemed = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: A drug dealer friend family member or someone else obtained it from a source other than a medical marijuana dispensary/delivery service",
+    drugs_marijuana_access_free = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: A friend gave it to me for free",
+    drugs_marijuana_access_choice6 = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Click to write Choice 6",
+    drugs_marijuana_access_choice7 = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Click to write Choice 7",
+    drugs_marijuana_access_choice8 = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Click to write Choice 8",
+    drugs_marijuana_access_dealerinformal = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Dealer (bought informally)",
+    drugs_marijuana_access_dealerdispensemedonly = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Drug dealer bought it for me from a medical marijuana dispensary/delivery service",
+    #drugs_marijuana_access_dealerdispensemedrec = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Drug dealer bought it for me from a medical or recreational marijuana dispensary/delivery service",
+    drugs_marijuana_access_familymedonly = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Family member obtained it for me from a medical marijuana dispensary/delivery service",
+    #drugs_marijuana_access_familymedorrec = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Family member obtained it for me from a medical or recreational marijuana dispensary/delivery service",
+    drugs_marijuana_access_friendmedonly = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Friend obtained it for me from a medical marijuana dispensary/delivery service",
+    #drugs_marijuana_access_friendmedorrec = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Friend obtained it for me from a medical or recreational marijuana dispensary/delivery service",
+    drugs_marijuana_access_selfmedicaldelivery = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: I bought from a medical marijuana delivery service",
+    drugs_marijuana_access_selfmedicalbm = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: I bought from a medical marijuana dispensary/collective storefront",
+    drugs_marijuana_access_selfrecreational = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: I bought from a recreational marijuana shop/dispensary/collective",
+    #drugs_marijuana_access_selfrecreationaldelivery = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: I bought from a recreational marijuana shop/dispensary/collective or delivery service",
+    drugs_marijuana_access_grown = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: I have grown my own plants",
+    drugs_marijuana_access_other = "Which of the following persons or places have you bought or received marijuana from in the past 30 days?: Other (please specify)"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  
+  new_return <- return_data %>%
+    select(-drugs_marijuana_access_choice6,-drugs_marijuana_access_choice7,-drugs_marijuana_access_choice8,
+           -drugs_marijuana_access_free,-drugs_marijuana_access_dealerinformal)
+  
+  return(new_return)
+}
+
+hallucinogen_type <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,drugs_halluc_type = `halluc_30_types`) %>%
+    mutate(drugs_halluc_type = gsub('”','',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub('“','',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', acid',' acid',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', shrooms',' shrooms',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', dim',' dim',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', Dimitri',' Dimitri',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', magi',' magi',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', yakee',' yakee',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', yopo',' yopo',drugs_halluc_type)) %>%
+    mutate(drugs_halluc_type = gsub(', lys',' lys',drugs_halluc_type)) 
+  variable_prefix <- "drugs_halluc_type"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `drugs_halluc_type_DMT (aka dimethyltryptamine Dimitri yakee yopo)` = "drugs_halluc_type_dmt",
+    `drugs_halluc_type_LSD (aka acid lysergic acid diethylamide)` = "drugs_halluc_type_lsd",
+    `drugs_halluc_type_Psilocybin mushrooms (aka magical mushrooms shrooms)` = "drugs_halluc_type_mushrooms"
+  )
+  
+  new_labels <- c(
+    drugs_halluc_type_dmt = "During the past 30 days, what types of psychedelics/hallucinogens did you use?: DMT",
+    drugs_halluc_type_lsd = "During the past 30 days, what types of psychedelics/hallucinogens did you use?: LSD",
+    drugs_halluc_type_mushrooms = "During the past 30 days, what types of psychedelics/hallucinogens did you use?: Mushrooms"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+rxmisuse_type <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,drugs_rxmisuse_type = `pdm_30_types`) %>%
+    mutate(drugs_rxmisuse_type = gsub(', bu',' bu',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', etc',' etc',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', fent',' fent',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', hydro',' hydro',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', meth',' meth',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', oxy',' oxy',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', oxy',' oxy',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', p',' p',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', A',' A',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', C',' C',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', D',' D',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', G',' G',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', L',' L',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', Per',' Per',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', R',' R',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', S',' S',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', V',' V',drugs_rxmisuse_type)) %>%
+    mutate(drugs_rxmisuse_type = gsub(', X',' X',drugs_rxmisuse_type)) 
+  variable_prefix <- "drugs_rxmisuse_type"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `drugs_rxmisuse_type_Prescription opioids (for example fentanyl oxycodone [OxyContin Percocet] hydrocodone [Vicodin] methadone buprenorphine etc.)` = "drugs_rxmisuse_opioids",
+    `drugs_rxmisuse_type_Prescription sedatives or sleeping pills (for example Valium Serepax Ativan Xanax Librium Rohypnol GHB etc.)`= "drugs_rxmisuse_sedatives",              
+    `drugs_rxmisuse_type_Prescription stimulants (for example Ritalin Concerta Dexedrine/dextroamphetamine Adderall/amphetamine salts prescription diet pills etc.)`= "drugs_rxmisuse_stimulants",
+    `drugs_rxmisuse_type_Something else not listed here (please specify):` = "drugs_rxmisuse_other"
+  )
+  
+  new_labels <- c(
+    drugs_rxmisuse_opioids = "In the past 30 days, what types of prescription drugs have you used that were not prescribed, or in higher doses than prescribed?: Opioids",
+    drugs_rxmisuse_sedatives = "In the past 30 days, what types of prescription drugs have you used that were not prescribed, or in higher doses than prescribed?: Sedatives or sleeping pills",
+    drugs_rxmisuse_stimulants = "In the past 30 days, what types of prescription drugs have you used that were not prescribed, or in higher doses than prescribed?: Stimulants ",
+    drugs_rxmisuse_other = "In the past 30 days, what types of prescription drugs have you used that were not prescribed, or in higher doses than prescribed?: Other "
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+roa_marijuana <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,drugs_roa_marijuana = `marj_30_roa`) %>%
+    mutate(drugs_roa_marijuana = gsub('”','',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub('“','',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub('"','',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', b',' b',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', G Pen',' G Pen',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', c',' c',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', e',' e',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', Kandy',' Kandy',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', o',' o',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', t',' t',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', Volcano',' Volcano',drugs_roa_marijuana)) %>%
+    mutate(drugs_roa_marijuana = gsub(', w',' w',drugs_roa_marijuana)) 
+  variable_prefix <- "drugs_roa_marijuana"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `drugs_roa_marijuana_Other (please specify):` = "drugs_roa_marijuana_other",
+    `drugs_roa_marijuana_Smoked in a blunt (dried marijuana rolled in a cigarillo or cigar)` = "drugs_roa_marijuana_blunt",
+    `drugs_roa_marijuana_Smoked in a rolled joint (not combined with tobacco)` = "drugs_roa_marijuana_joint",
+    `drugs_roa_marijuana_Smoked in a skiff/spliff (marijuana and tobacco mixed together)` = "drugs_roa_marijuana_mixed",
+    `drugs_roa_marijuana_Smoked using a bong water pipe bubbler etc.` = "drugs_roa_marijuana_bong",
+    `drugs_roa_marijuana_Smoked using a pipe bowl chillum one-hitter etc.` = "drugs_roa_marijuana_bowl",
+    `drugs_roa_marijuana_Swallowed an edible or drinkable` = "drugs_roa_marijuana_edible",
+    `drugs_roa_marijuana_Vaped dried plant material using a vaporizer (e.g. e-joint Volcano)` = "drugs_roa_marijuana_vaporizer",
+    `drugs_roa_marijuana_Vaped hash oil or other concentrates using a vape pen (e.g. G Pen KandyPen)` = "drugs_roa_marijuana_vapepen",
+    `drugs_roa_marijuana_Vaped hash oil or other concentrates using an oil rig or nail (e.g. took dabs)` = "drugs_roa_marijuana_oilrig"
+  )
+  
+  new_labels <- c(
+    drugs_roa_marijuana_other = "What are the different ways that you have used marijuana in the past 30 days?: Other (please specify):",
+    drugs_roa_marijuana_blunt = "What are the different ways that you have used marijuana in the past 30 days?: Smoked in a blunt (dried marijuana rolled in a cigarillo or cigar)",
+    drugs_roa_marijuana_joint = "What are the different ways that you have used marijuana in the past 30 days?: Smoked in a rolled joint (not combined with tobacco)",
+    drugs_roa_marijuana_mixed = "What are the different ways that you have used marijuana in the past 30 days?: Smoked in a skiff/spliff (marijuana and tobacco mixed together)",
+    drugs_roa_marijuana_bong = "What are the different ways that you have used marijuana in the past 30 days?: Smoked using a bong water pipe bubbler etc.",
+    drugs_roa_marijuana_bowl = "What are the different ways that you have used marijuana in the past 30 days?: Smoked using a pipe bowl chillum one-hitter etc.",
+    drugs_roa_marijuana_edible = "What are the different ways that you have used marijuana in the past 30 days?: Swallowed an edible or drinkable",
+    drugs_roa_marijuana_vaporizer = "What are the different ways that you have used marijuana in the past 30 days?: Vaped dried plant material using a vaporizer (e.g. e-joint Volcano)",
+    drugs_roa_marijuana_vapepen = "What are the different ways that you have used marijuana in the past 30 days?: Vaped hash oil or other concentrates using a vape pen (e.g. G Pen KandyPen)",
+    drugs_roa_marijuana_oilrig = "What are the different ways that you have used marijuana in the past 30 days?: Vaped hash oil or other concentrates using an oil rig or nail (e.g. took dabs)" 
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+techuse_techowned <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,techuse_techowned = `techaccess`) %>%
+    mutate(techuse_techowned = gsub(', or',' or',techuse_techowned)) %>%
+    mutate(techuse_techowned = gsub(', Samsung',' Samsung',techuse_techowned))
+  variable_prefix <- "techuse_techowned"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `techuse_techowned_A cell phone that is not a smartphone` = "techuse_techowned_basicphone",
+    `techuse_techowned_A desktop or laptop computer` = "techuse_techowned_computer",
+    `techuse_techowned_A smartphone` = "techuse_techowned_smartphone",
+    `techuse_techowned_A tablet computer like an iPad Samsung Galaxy Tablet or Kindle Fire` = "techuse_techowned_tablet",
+    `techuse_techowned_None` = "techuse_techowned_none"
+  )
+  
+  new_labels <- c(
+    techuse_techowned_basicphone = "Do you, personally, own any of the following items currently?: A cell phone that is not a smartphone",
+    techuse_techowned_computer = "Do you, personally, own any of the following items currently?: A desktop or laptop computer",
+    techuse_techowned_smartphone = "Do you, personally, own any of the following items currently?: A smartphone",
+    techuse_techowned_tablet = "Do you, personally, own any of the following items currently?: A tablet computer like an iPad",
+    techuse_techowned_none = "Do you, personally, own any of the following items currently?: None"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+gang_closest <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,history_gang_closest = `gang_aff`) %>%
+    mutate(history_gang_closest = gsub(', etc',' etc',history_gang_closest)) %>%
+    mutate(history_gang_closest = gsub(', fia',' fia',history_gang_closest)) %>%
+    mutate(history_gang_closest = gsub(', hook',' hook',history_gang_closest)) %>%
+    mutate(history_gang_closest = gsub(', husband',' husband',history_gang_closest))
+  variable_prefix <- "history_gang_closest"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `history_gang_closest_Close friend` = "history_gang_closest_friend",
+    `history_gang_closest_Family member` = "history_gang_closest_family",                                   
+    `history_gang_closest_No one important in my life is a gang member` = "history_gang_closest_none",
+    `history_gang_closest_Other (specify):` = "history_gang_closest_other",
+    `history_gang_closest_Romantic/intimate partner (boyfriend/girlfriend husband/wife fiancé hookup etc.)` = "history_gang_closest_partner"
+  )
+  
+  new_labels <- c(
+    history_gang_closest_friend = "Do you have someone important in your life that is currently a member of a gang?: Close friend",
+    history_gang_closest_family = "Do you have someone important in your life that is currently a member of a gang?: Family member",
+    history_gang_closest_none = "Do you have someone important in your life that is currently a member of a gang?: No one important in my life is a gang member",
+    history_gang_closest_other = "Do you have someone important in your life that is currently a member of a gang?: Other (specify)",
+    history_gang_closest_partner = "Do you have someone important in your life that is currently a member of a gang?: Romantic or intimate partner"
+  )
+  
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+drugs_everuse <- function(filtered_baseline){
+  filtered_data <- rename(filtered_baseline,drugs_everuse = `sutypes_use_ever`) %>%
+    mutate(drugs_everuse = gsub('“','',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub('”','',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', etc',' etc',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', shrooms',' shrooms',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', fake',' fake',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', markers',' markers',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', or',' or',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', paint',' paint',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', spice',' spice',drugs_everuse)) %>%
+    mutate(drugs_everuse = gsub(', vaped',' vaped',drugs_everuse))
+  variable_prefix <- "drugs_everuse"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
+  new_names <- c(
+    `drugs_everuse_Alcohol` = "drugs_everuse_alcohol",
+    `drugs_everuse_Cocaine (powdered)` = "drugs_everuse_cocaine",
+    `drugs_everuse_Crack / Freebase Cocaine` = "drugs_everuse_crack",
+    `drugs_everuse_Ecstasy / MDMA / Molly` = "drugs_everuse_mdma",
+    `drugs_everuse_Hallucinogens/psychedelics (LSD/acid shrooms etc)` = "drugs_everuse_hallucinogens",
+    `drugs_everuse_Heroin` = "drugs_everuse_heroin",
+    `drugs_everuse_I have not used any substances in my lifetime.` = "drugs_everuse_none",
+    `drugs_everuse_Inhalants (sniffed/huffed glue paint markers etc.)` = "drugs_everuse_inhalant",
+    `drugs_everuse_Ketamine` = "drugs_everuse_ketamine",
+    `drugs_everuse_Marijuana` = "drugs_everuse_marijuana",
+    `drugs_everuse_Meth` = "drugs_everuse_meth",
+    `drugs_everuse_Nitrous Oxide (whippets/laughing gas/Hippy Crack/etc.)` = "drugs_everuse_nitrous",
+    `drugs_everuse_PCP` = "drugs_everuse_pcp",
+    `drugs_everuse_Prescription drugs that were not prescribed or in higher doses than prescribed` = "drugs_everuse_rxmisuse",
+    `drugs_everuse_Something else not listed here` = "drugs_everuse_other",
+    `drugs_everuse_Steroid pills or shots without a prescription` = "drugs_everuse_steroids",
+    `drugs_everuse_Synthetic marijuana (K2 spice fake weed)` = "drugs_everuse_syntheticmj",
+    `drugs_everuse_Tobacco (smoked vaped or chewing tobacco)` = "drugs_everuse_tobacco"
+  )
+  
+  new_labels <- c(
+    drugs_everuse_alcohol = "Which of the following substances have you used in your lifetime?: Alcohol",
+    drugs_everuse_cocaine = "Which of the following substances have you used in your lifetime?: Cocaine (powdered)",
+    drugs_everuse_crack = "Which of the following substances have you used in your lifetime?: Crack / Freebase Cocaine",
+    drugs_everuse_mdma = "Which of the following substances have you used in your lifetime?: Ecstasy / MDMA / Molly",
+    drugs_everuse_hallucinogens = "Which of the following substances have you used in your lifetime?: Hallucinogens/psychedelics (LSD/acid shrooms etc)",
+    drugs_everuse_heroin = "Which of the following substances have you used in your lifetime?: Heroin",
+    drugs_everuse_none = "Which of the following substances have you used in your lifetime?: I have not used any substances in my lifetime.",
+    drugs_everuse_inhalant = "Which of the following substances have you used in your lifetime?: Inhalants (sniffed/huffed glue paint markers etc.)",
+    drugs_everuse_ketamine = "Which of the following substances have you used in your lifetime?: Ketamine",
+    drugs_everuse_marijuana = "Which of the following substances have you used in your lifetime?: Marijuana",
+    drugs_everuse_meth = "Which of the following substances have you used in your lifetime?: Meth",
+    drugs_everuse_nitrous = "Which of the following substances have you used in your lifetime?: Nitrous Oxide (whippets/laughing gas/Hippy Crack/etc.)",
+    drugs_everuse_pcp = "Which of the following substances have you used in your lifetime?: PCP",
+    drugs_everuse_rxmisuse = "Which of the following substances have you used in your lifetime?: Prescription drugs that were not prescribed or in higher doses than prescribed",
+    drugs_everuse_other = "Which of the following substances have you used in your lifetime?: Something else not listed here",
+    drugs_everuse_steroids = "Which of the following substances have you used in your lifetime?: Steroid pills or shots without rx",
+    drugs_everuse_syntheticmj = "Which of the following substances have you used in your lifetime?: Synthetic marijuana (K2 spice fake weed)",
+    drugs_everuse_tobacco = "Which of the following substances have you used in your lifetime?: Tobacco (smoked vaped or chewing tobacco)"
+  )
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  return(return_data)
+}
+
+drugs_roa_abstracted <- function(filtered_baseline,drug_name){
+  filtered_data <- filtered_baseline %>%
+    rename(drugs_roa_meth = `meth_30_roa`,
+           drugs_roa_mdma = `mdma_30_roa`,
+           drugs_roa_rxmisuse = `pdm_30_roa`,
+           drugs_roa_heroin = `heroin_30_roa`,
+           drugs_roa_cocaine = `cocaine_30_roa`,
+           drugs_roa_crack = `crack_30_roa`,
+           drugs_roa_steroid = `steroid_30_roa`,
+           drugs_roa_pcp = `pcp_30_roa`,
+           drugs_roa_other = `othersu_30_roa`) %>%
+    mutate(drugs_roa_other = gsub(' \\(please specify\\)\\:','',drugs_roa_other)) %>%
+    mutate(drugs_roa_cocaine = gsub('Orally \\(swallowed, chewed, rubbed on gums, etc\\.\\)','Swallowed',drugs_roa_cocaine))
+  variable_prefix <- paste0("drugs_roa_",drug_name)
+  separator <- ","
+  if(!all(is.na(eval(parse(text = paste0("filtered_data$drugs_roa_",drug_name)))))){
+    prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  }
+  
+  pre_new_names <- c(
+    paste0(variable_prefix,"_Injected"),
+    paste0(variable_prefix,"_Smoked"),
+    paste0(variable_prefix,"_Snorted"),
+    paste0(variable_prefix,"_Swallowed"),
+    paste0(variable_prefix,"_Other")
+  )
+  new_names <- tolower(pre_new_names)
+  names(new_names) <- pre_new_names
+  
+  new_labels <- c(
+    paste0("In the past 30 days, how have you used ",drug_name,"?: Injected"),
+    paste0("In the past 30 days, how have you used ",drug_name,"?: Smoked"),
+    paste0("In the past 30 days, how have you used ",drug_name,"?: Snorted"),
+    paste0("In the past 30 days, how have you used ",drug_name,"?: Swallowed"),
+    paste0("In the past 30 days, how have you used ",drug_name,"?: Other")
+  )
+  names(new_labels) <- new_names
+  
+  return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
+  
+  if(drug_name == "crack"){
+    return_data <- select(return_data,-drugs_roa_crack_swallowed)
+  }
+  if(drug_name == "heroin"){
+    return_data <- select(return_data,-drugs_roa_heroin_swallowed)
+  }
+  if(drug_name == "mdma"){
+    return_data <- select(return_data,-drugs_roa_mdma_smoked)
+  }
+  if(drug_name == "steroid"){
+    return_data <- select(return_data,-drugs_roa_steroid_smoked)
+  }
+  if(drug_name == "steroid"){
+    return_data <- select(return_data,-drugs_roa_steroid_snorted)
+  }
+  
   return(return_data)
 }
 
@@ -215,7 +1032,9 @@ income_source_30day <- function(filtered_baseline){
     mutate(history_income_source_30day = gsub(', drugs',' drugs',history_income_source_30day)) %>%
     mutate(history_income_source_30day = gsub(', shelter',' shelter',history_income_source_30day)) %>%
     mutate(history_income_source_30day = gsub(', or',' or',history_income_source_30day)) %>%
-    mutate(history_income_source_30day = gsub('\"','',history_income_source_30day)) 
+    mutate(history_income_source_30day = gsub('\"','',history_income_source_30day)) %>%
+    mutate(history_income_source_30day = gsub('From an agency or program such as food stamps or welfare',
+                                              'Public benefits such as food stamps or welfare',history_income_source_30day))
   variable_prefix <- "history_income_source_30day"
   separator <- ","
   prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
@@ -227,7 +1046,7 @@ income_source_30day <- function(filtered_baseline){
     `history_income_source_30day_Doing any kind of paid temporary work (day labor seasonal work minimum wage or pick-up work)` = "history_income_source_30day_tempwork",
     `history_income_source_30day_Doing any work that you were paid under the table for` = "history_income_source_30day_underwork",
     `history_income_source_30day_Friends` = "history_income_source_30day_friends",
-    `history_income_source_30day_From an agency or program such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)` = "history_income_source_30day_agency",
+    #`history_income_source_30day_From an agency or program such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)` = "history_income_source_30day_agency",
     `history_income_source_30day_Gambling` = "history_income_source_30day_gambling",
     `history_income_source_30day_Panhandling/people just giving you money` = "history_income_source_30day_panhandle",
     `history_income_source_30day_Public benefits such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)` = "history_income_source_30day_publicbenefits",
@@ -249,7 +1068,7 @@ income_source_30day <- function(filtered_baseline){
     history_income_source_30day_tempwork = "During the past 30 days, did you get any money or resources to meet your basic needs from: Doing any kind of paid temporary work (day labor seasonal work minimum wage or pick-up work)",
     history_income_source_30day_underwork = "During the past 30 days, did you get any money or resources to meet your basic needs from: Doing any work that you were paid under the table for",
     history_income_source_30day_friends = "During the past 30 days, did you get any money or resources to meet your basic needs from: Friends",
-    history_income_source_30day_agency = "During the past 30 days, did you get any money or resources to meet your basic needs from: From an agency or program such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)",
+    #history_income_source_30day_agency = "During the past 30 days, did you get any money or resources to meet your basic needs from: From an agency or program such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)",
     history_income_source_30day_gambling = "During the past 30 days, did you get any money or resources to meet your basic needs from: Gambling",
     history_income_source_30day_panhandle = "During the past 30 days, did you get any money or resources to meet your basic needs from: Panhandling/people just giving you money",
     history_income_source_30day_publicbenefits = "During the past 30 days, did you get any money or resources to meet your basic needs from: Public benefits such as food stamps or welfare (e.g. food stamps/SNAP TANF SSI GR)",
@@ -621,6 +1440,7 @@ romance_partners_gender_baseline <- function(filtered_baseline){
   prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
   
   new_names <- c(
+    `history_romance_pgen_Different identity (please state):` = "history_romance_pgen_other",
     `history_romance_pgen_Female` = "history_romance_pgen_female",
     `history_romance_pgen_Genderqueer/Gender non-conforming` = "history_romance_pgen_queer",
     `history_romance_pgen_Male` = "history_romance_pgen_male",
@@ -628,6 +1448,7 @@ romance_partners_gender_baseline <- function(filtered_baseline){
     `history_romance_pgen_Trans male/Trans man` = "history_romance_pgen_transman"
   )
   new_labels <- list(
+    history_romance_pgen_other = "What is the gender(s) of your partner(s)?: Other (please specify)",
     history_romance_pgen_female = "What is the gender(s) of your partner(s)?: Female",
     history_romance_pgen_queer = "What is the gender(s) of your partner(s)?: Genderqueer or nonconforming",
     history_romance_pgen_male = "What is the gender(s) of your partner(s)?: Male",
@@ -725,31 +1546,32 @@ prep_where_baseline <- function(filtered_baseline){
 }
 
 prep_social_baseline <- function(filtered_baseline){
-  filtered_data <- rename(filtered_baseline,survey_prep_social = prep_social_who)
+  filtered_data <- rename(filtered_baseline,survey_prep_social = prep_social_who) %>%
+    mutate(survey_prep_social = gsub(', agency',' agency',survey_prep_social)) %>%
+    mutate(survey_prep_social = gsub(', inti',' inti',survey_prep_social)) %>%
+    mutate(survey_prep_social = gsub(', social',' social',survey_prep_social))
+  variable_prefix <- "survey_prep_social"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
   
   new_names <- c(
-    `survey_prep_social_agency staff or volunteer` = "survey_prep_who_staff",
-    `survey_prep_social_Case worker` = "survey_prep_who_caseworker",
+    `survey_prep_social_Case worker social worker agency staff or volunteer` = "survey_prep_who_provider",
     `survey_prep_social_Family (could include both biological and foster family)` = "survey_prep_who_family",
     `survey_prep_social_Friends from home or from before you were homeless` = "survey_prep_who_pastfriends",
     `survey_prep_social_Friends or other peers you know from the street or peers you interact with at a service agency` = "survey_prep_who_stfriends",
-    `survey_prep_social_intimately or sexually involved with` = "survey_prep_who_sexual",
     `survey_prep_social_People from school` = "survey_prep_who_school",
     `survey_prep_social_People from work` = "survey_prep_who_work",
-    `survey_prep_social_Person you are romantically` = "survey_prep_who_romantic",
-    `survey_prep_social_social worker` = "survey_prep_who_socialworker"
+    `survey_prep_social_Person you are romantically intimately or sexually involved with` = "survey_prep_who_sexpartner"
   )
   new_labels <- list(
-    survey_prep_who_staff = "Who do you know that is currently taking PrEP?: Agency staff or volunteer",
-    survey_prep_who_caseworker = "Who do you know that is currently taking PrEP?: Case worker",
+    survey_prep_who_provider = "Who do you know that is currently taking PrEP?: Case worker social worker agency staff or volunteer",
     survey_prep_who_family = "Who do you know that is currently taking PrEP?: Family",
     survey_prep_who_pastfriends = "Who do you know that is currently taking PrEP?: Friends from home",
     survey_prep_who_stfriends = "Who do you know that is currently taking PrEP?: From or peers from street or agency",
-    survey_prep_who_sexual = "Who do you know that is currently taking PrEP?: Intimately or sexually involved",
     survey_prep_who_school = "Who do you know that is currently taking PrEP?: People from school",
     survey_prep_who_work = "Who do you know that is currently taking PrEP?: People from work",
-    survey_prep_who_romantic = "Who do you know that is currently taking PrEP?: Person you are romantically involved with",
-    survey_prep_who_socialworker = "Who do you know that is currently taking PrEP?: social worker"
+    survey_prep_who_sexpartner = "Who do you know that is currently taking PrEP?: Person you are romantically involved with"
   )
   
   return_data <- prebind_data(filtered_data, "survey_prep_social", new_names, new_labels, separator = ",")
@@ -791,23 +1613,26 @@ prep_barrier_baseline <- function(filtered_baseline){
 }
 
 sex3mo_describe_baseline <- function(filtered_baseline){
-  filtered_data <- rename(filtered_baseline,survey_sex3mo_relation = describe_3mopartner)
+  filtered_data <- rename(filtered_baseline,survey_sex3mo_relation = describe_3mopartner) %>%
+    mutate(survey_sex3mo_relation = gsub(', like',' like',survey_sex3mo_relation))
+  variable_prefix <- "survey_sex3mo_relation"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+  
   
   new_names <- c(
     `survey_sex3mo_relation_Casual partner (someone I'm seeing/hooking up with/dating)` = "survey_sex3mo_relation_casual",
     `survey_sex3mo_relation_I have not had sex with anyone in the past 3 months` = "survey_sex3mo_relation_none",
-    `survey_sex3mo_relation_like a one-time hookup` = "survey_sex3mo_relation_hookup",
     `survey_sex3mo_relation_Other` = "survey_sex3mo_relation_other",
     `survey_sex3mo_relation_Serious partner (husband/wife/life partner/girlfriend/boyfriend)` = "survey_sex3mo_relation_serious",
-    `survey_sex3mo_relation_Someone I just met` = "survey_sex3mo_relation_stranger"
+    `survey_sex3mo_relation_Someone I just met like a one-time hookup` = "survey_sex3mo_relation_hookup"
   )
   new_labels <- list(
     survey_sex3mo_relation_casual = "Think about the person(s) that you have had sex (oral, anal, vaginal) with over the past 3 months. How would you describe this person(s): Casual partner",
     survey_sex3mo_relation_none = "Think about the person(s) that you have had sex (oral, anal, vaginal) with over the past 3 months. How would you describe this person(s): I have not had sex with anyone",
-    survey_sex3mo_relation_hookup = "Think about the person(s) that you have had sex (oral, anal, vaginal) with over the past 3 months. How would you describe this person(s): like a one-time hookup",
     survey_sex3mo_relation_other = "Think about the person(s) that you have had sex (oral, anal, vaginal) with over the past 3 months. How would you describe this person(s): Other",
     survey_sex3mo_relation_serious = "Think about the person(s) that you have had sex (oral, anal, vaginal) with over the past 3 months. How would you describe this person(s): Serious partner",
-    survey_sex3mo_relation_stranger = "Think about the person(s) that you have had sex (oral, anal, vaginal) with over the past 3 months. How would you describe this person(s): Someone I just met"
+    survey_sex3mo_relation_hookup = "Think about the person(s) that you have had sex (oral, anal, vaginal) with over the past 3 months. How would you describe this person(s): Someone I just met"
   )
   
   return_data <- prebind_data(filtered_data, "survey_sex3mo_relation", new_names, new_labels, separator = ",")
@@ -840,28 +1665,28 @@ sex3mo_gender_baseline <- function(filtered_baseline){
 }
 
 sex3mo_type_baseline <- function(filtered_baseline){
-  filtered_data <- rename(filtered_baseline,survey_sex3mo_type = `3mosex_types`)
+  filtered_data <- rename(filtered_baseline,survey_sex3mo_type = `3mosex_types`) %>%
+    mutate(survey_sex3mo_type = gsub(', with',' with',survey_sex3mo_type)) %>%
+    mutate(survey_sex3mo_type = gsub(', no',' no',survey_sex3mo_type)) 
   variable_prefix <- "survey_sex3mo_type"
+  separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
   
   new_names <- c(
-    `survey_sex3mo_type_Anal sex` = "survey_sex3mo_type_anal",
-    `survey_sex3mo_type_no condom/bareback` = "survey_sex3mo_type_bareback",
-    `survey_sex3mo_type_Oral sex` = "survey_sex3mo_type_oral",
-    `survey_sex3mo_type_with a condom` = "survey_sex3mo_type_condom",
-    `survey_sex3mo_type_no condom` = "survey_sex3mo_type_nocondom",
-    `survey_sex3mo_type_no condom/dental dam` = "survey_sex3mo_type_nodam",
-    `survey_sex3mo_type_Vaginal sex` = "survey_sex3mo_type_vaginal",
-    `survey_sex3mo_type_with a condom/dental dam` = "survey_sex3mo_dam"
+    `survey_sex3mo_type_Anal sex no condom/bareback` = "survey_sex3mo_type_anal_nocondom",
+    `survey_sex3mo_type_Anal sex with a condom` = "survey_sex3mo_type_anal_condom",
+    `survey_sex3mo_type_Oral sex no condom/dental dam` = "survey_sex3mo_type_oral_nocondom",
+    `survey_sex3mo_type_Oral sex with a condom/dental dam` = "survey_sex3mo_type_oral_condom",
+    `survey_sex3mo_type_Vaginal sex no condom` = "survey_sex3mo_type_vgnl_nocondom",
+    `survey_sex3mo_type_Vaginal sex with a condom` = "survey_sex3mo_type_vgnl_condom"
   )
   new_labels <- list(
-    survey_sex3mo_type_anal = "What types of sex did you have in the past 3 months?: Anal sex",
-    survey_sex3mo_type_bareback = "What types of sex did you have in the past 3 months?: no condom/bareback",
-    survey_sex3mo_type_oral = "What types of sex did you have in the past 3 months?: Oral sex",
-    survey_sex3mo_type_condom = "What types of sex did you have in the past 3 months?: with a condom",
-    survey_sex3mo_type_nocondom = "What types of sex did you have in the past 3 months?: no condom/bareback",
-    survey_sex3mo_type_nodam = "What types of sex did you have in the past 3 months?: no condom/dental dam",
-    survey_sex3mo_type_vaginal = "What types of sex did you have in the past 3 months?: Vaginal sex",
-    survey_sex3mo_dam = "What types of sex did you have in the past 3 months?: with a condom/dental dam"
+    survey_sex3mo_type_anal_nocondom = "What types of sex did you have in the past 3 months?: Anal sex no condom",
+    survey_sex3mo_type_anal_condom = "What types of sex did you have in the past 3 months?: Anal sex with a condom",
+    survey_sex3mo_type_oral_nocondom = "What types of sex did you have in the past 3 months?: Oral sex no condom",
+    survey_sex3mo_type_oral_condom = "What types of sex did you have in the past 3 months?: Oral sex with a condom",
+    survey_sex3mo_type_vgnl_nocondom = "What types of sex did you have in the past 3 months?: Vaginal sex no condom",
+    survey_sex3mo_type_vgnl_condom = "What types of sex did you have in the past 3 months?: Vaginal sex with a condom"
   )
   
   return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, separator = ",")
@@ -869,41 +1694,37 @@ sex3mo_type_baseline <- function(filtered_baseline){
 }
 
 sex3mo_cntrcptv_baseline <- function(filtered_baseline){
-  filtered_data <- rename(filtered_baseline,survey_sex3mo_cntrcptv = `3mosex_cntrcptv`)
+  filtered_data <- rename(filtered_baseline,survey_sex3mo_cntrcptv = `3mosex_cntrcptv`) %>%
+    mutate(survey_sex3mo_cntrcptv = gsub(', or',' or',survey_sex3mo_cntrcptv)) %>%
+    mutate(survey_sex3mo_cntrcptv = gsub(', r',' r',survey_sex3mo_cntrcptv)) %>%
+    mutate(survey_sex3mo_cntrcptv = gsub(', temp',' temp',survey_sex3mo_cntrcptv)) 
   variable_prefix <- "survey_sex3mo_cntrcptv"
   separator <- ","
-  
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
+
   new_names <- c(
     `survey_sex3mo_cntrcptv_An IUD or implant (e.g. Implanon)` = "survey_sex3mo_cntrcptv_iud",
-    `survey_sex3mo_cntrcptv_Birth control patch (e.g. Ortho Evra)` = "survey_sex3mo_cntrcptv_patch",
+    `survey_sex3mo_cntrcptv_Birth control patch (e.g. Ortho Evra) ring (e.g. NuvaRing) or shot (e.g. Depo-Provera)` = "survey_sex3mo_cntrcptv_patch",
     `survey_sex3mo_cntrcptv_Birth control pills` = "survey_sex3mo_cntrcptv_pill",
     `survey_sex3mo_cntrcptv_Condoms (male or female)` = "survey_sex3mo_cntrcptv_condom",
-    `survey_sex3mo_cntrcptv_Fertility awareness methods (like cycle tracking` = "survey_sex3mo_cntrcptv_fam",
+    `survey_sex3mo_cntrcptv_Fertility awareness methods (like cycle tracking rhythm method temperature)` = "survey_sex3mo_cntrcptv_fam",
     `survey_sex3mo_cntrcptv_I have not had vaginal sex in the past 3 months` = "survey_sex3mo_cntrcptv_nosex",
     `survey_sex3mo_cntrcptv_No method was used to prevent pregnancy` = "survey_sex3mo_cntrcptv_none",
     `survey_sex3mo_cntrcptv_Not sure` = "survey_sex3mo_cntrcptv_unsure",
-    `survey_sex3mo_cntrcptv_or shot (e.g. Depo-Provera)` = "survey_sex3mo_cntrcptv_shot",
     `survey_sex3mo_cntrcptv_Pulling out/withdrawal` = "survey_sex3mo_cntrcptv_pullout",
-    `survey_sex3mo_cntrcptv_rhythm method` = "survey_sex3mo_cntrcptv_rhythm",
-    `survey_sex3mo_cntrcptv_ring (e.g. NuvaRing)` = "survey_sex3mo_cntrcptv_ring",
-    `survey_sex3mo_cntrcptv_Some other method (please specify):` = "survey_sex3mo_cntrcptv_other",
-    `survey_sex3mo_cntrcptv_temperature)` = "survey_sex3mo_cntrcptv_temp"
+    `survey_sex3mo_cntrcptv_Some other method (please specify):` = "survey_sex3mo_cntrcptv_other"
   )
   new_labels <- list(
     survey_sex3mo_cntrcptv_iud = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: An IUD or implant",
-    survey_sex3mo_cntrcptv_patch = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Birth control patch",
+    survey_sex3mo_cntrcptv_patch = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Patch shot or ring",
     survey_sex3mo_cntrcptv_pill = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Birth control pills",
     survey_sex3mo_cntrcptv_condom = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Condoms",
     survey_sex3mo_cntrcptv_fam = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Fertility awareness method",
     survey_sex3mo_cntrcptv_nosex = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: I have not had vaginal sex",
     survey_sex3mo_cntrcptv_none = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: No method was used",
     survey_sex3mo_cntrcptv_unsure = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Not sure",
-    survey_sex3mo_cntrcptv_shot = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: or shot (Depo-Provera)",
     survey_sex3mo_cntrcptv_pullout = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Pulling out/withdrawal",
-    survey_sex3mo_cntrcptv_rhythm = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: rhythm method",
-    survey_sex3mo_cntrcptv_ring = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: ring (Nuvaring)",
-    survey_sex3mo_cntrcptv_other = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Some other method",
-    survey_sex3mo_cntrcptv_temp = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: temperature"
+    survey_sex3mo_cntrcptv_other = "In the past 3 months, which of the following methods did you or your partner use to prevent pregnancy during vaginal sex?: Some other method"
   )
   
   return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
@@ -911,29 +1732,28 @@ sex3mo_cntrcptv_baseline <- function(filtered_baseline){
 }
 
 sex3mo_extype_baseline <- function(filtered_baseline){
-  filtered_data <- rename(filtered_baseline,survey_sex3mo_extype = `exchsex_types`)
+  filtered_data <- rename(filtered_baseline,survey_sex3mo_extype = `exchsex_types`) %>%
+    mutate(survey_sex3mo_extype = gsub(', with',' with',survey_sex3mo_extype)) %>%
+    mutate(survey_sex3mo_extype = gsub(', no',' no',survey_sex3mo_extype)) 
   variable_prefix <- "survey_sex3mo_extype"
   separator <- ","
+  prebind_data(filtered_data, variable_prefix, new_names, new_labels, TRUE, separator)
   
   new_names <- c(
-    `survey_sex3mo_extype_Anal sex` = "survey_sex3mo_extype_anal",
-    `survey_sex3mo_extype_no condoms/bareback` = "survey_sex3mo_extype_bareback",
-    `survey_sex3mo_extype_Oral sex` = "survey_sex3mo_extype_oral",
-    `survey_sex3mo_extype_with a condom` = "survey_sex3mo_extype_condom",
-    `survey_sex3mo_extype_no condom` = "survey_sex3mo_extype_nocondom",
-    `survey_sex3mo_extype_no condom/dental dam` = "survey_sex3mo_extype_nodam",
-    `survey_sex3mo_extype_Vaginal sex` = "survey_sex3mo_extype_vaginal",
-    `survey_sex3mo_extype_with a condom/dental dam` = "survey_sex3mo_dam"
+    `survey_sex3mo_extype_Anal sex no condoms/bareback` = "survey_sex3mo_extype_anal_nocondom",
+    `survey_sex3mo_extype_Anal sex with a condom` = "survey_sex3mo_extype_anal_condom",
+    `survey_sex3mo_extype_Oral sex no condom/dental dam` = "survey_sex3mo_extype_oral_nocondom",
+    `survey_sex3mo_extype_Oral sex with a condom/dental dam` = "survey_sex3mo_extype_oral_condom",
+    `survey_sex3mo_extype_Vaginal sex no condom` = "survey_sex3mo_extype_vgnl_nocondom",
+    `survey_sex3mo_extype_Vaginal sex with a condom` = "survey_sex3mo_extype_vgnl_condom"
   )
   new_labels <- list(
-    survey_sex3mo_extype_anal = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Anal sex",
-    survey_sex3mo_extype_bareback = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: no condom/bareback",
-    survey_sex3mo_extype_oral = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Oral sex",
-    survey_sex3mo_extype_condom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: with a condom",
-    survey_sex3mo_extype_nocondom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: no condom/bareback",
-    survey_sex3mo_extype_nodam = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: no condom/dental dam",
-    survey_sex3mo_extype_vaginal = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Vaginal sex",
-    survey_sex3mo_extype_dam = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: with a condom/dental dam"
+    survey_sex3mo_extype_anal_nocondom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Anal sex no condom",
+    survey_sex3mo_extype_anal_condom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Anal sex with a condom",
+    survey_sex3mo_extype_oral_nocondom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Oral sex no condom",
+    survey_sex3mo_extype_oral_condom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Oral sex with a condom",
+    survey_sex3mo_extype_vgnl_nocondom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Vaginal sex no condom",
+    survey_sex3mo_extype_vgnl_condom = "What types of sex did you trade in the past 3 months for money, drugs, a place to stay, food or meals, or anything else?: Vaginal sex with a condom"
   )
   
   return_data <- prebind_data(filtered_data, variable_prefix, new_names, new_labels, FALSE, separator)
