@@ -11,6 +11,20 @@ library(bit64)
 
 select <- dplyr::select
 
+pipe_print <- function(data_to_pass, string_to_print){
+  print(string_to_print)
+  return(data_to_pass)
+}
+
+
+simplify_sni_id <- function(sni_id){
+  remove_spaces <- gsub(" ","",sni_id)
+  remove_periods <- gsub("\\.","",remove_spaces)
+  remove_quote <- gsub("'","",remove_periods)
+  make_lower <- tolower(remove_quote)
+  return(make_lower)
+}
+
 write_gps_logs <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE){
   gps_files <- read_file_list(data_dirname,wockets_dirname,"data/","lml_com$","GPS.csv$")
   pre_raw_gps_log <- rbindlist(lapply(gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = wockets_dirname), fill = TRUE)

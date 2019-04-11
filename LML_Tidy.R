@@ -9,791 +9,91 @@ library(foreach)
 library(haven)
 library(tidyverse)
 library(lubridate)
-library(geosphere)
-library(bit64)
-library(sp)
-library(rgdal)
-library(rgeos)
-library(raster)
-library(ggmap)
-library(leaflet)
-library(htmltools)
-library(htmlwidgets)
-library(aspace)
+
 
 # Override
 select <- dplyr::select
-extract <- tidyr::extract
-shift <- data.table::shift
-summarize <- dplyr::summarize
-slice <- dplyr::slice
 
 # Imports
 source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 source("LML_Tidy_EMA.R", encoding = "UTF-8")
 source("LML_Tidy_Daily.R", encoding = "UTF-8")
+source("LML_Baseline.R", encoding = "UTF-8")
+source("LML_GIS.R", encoding = "UTF-8")
+
 
 # Keys
 if(.Platform$OS.type == "windows"){
   data_dirname <- "C:/Users/dzubur/Desktop/LML Raw Data"
 } else {
-  data_dirname <- "/Users/Eldin/Downloads/Data"
+  data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
 }
-if(.Platform$OS.type == "windows"){
-  sni_stata_filename <- "C:/Users/dzubur/SharePoint/T/Team/Eldin/LML Data Management/Data/SNI.dta"
-} else {
-  sni_stata_filename <- "/Users/Eldin/Downloads/Data/SNI.dta"
-}
+
 wockets_dirname <- "Wockets"
 manual_dirname <- "Manual"
 id_varstub <- "lml_com$"
 filename_varstub <- "PromptResponses_EMA.csv$"
 
-gps_geocode_address <- function(){
-  site_addresses <- fread("/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/site_geocoding.csv")
-  api_key <- names(fread("/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/api_key.txt"))
-  register_google(api_key)
-  for(i in 1:nrow(site_addresses))
-  {
-    result <- geocode(site_addresses$location[i], output = "latlona", source = "google")
-    site_addresses$longitude[i] <- as.numeric(result[1])
-    site_addresses$latitude[i] <- as.numeric(result[2])
-    site_addresses$verifyaddress[i] <- as.character(result[3])
-  }
-  housing_geo <- select(site_addresses,housing_building_name,longitude,latitude)
-  write_csv(housing_geo,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/geocoded_housing.csv")
-  return(housing_geo)
-}
-
-mapitout <- function(gps_data){
-  leaflet() %>%
-    addTiles() %>%
-    addCircles(data = gps_data)
-}
-
-heatitup <- function(gps_data, radius = 10){
-  registerPlugin <- function(map, plugin) {
-    map$dependencies <- c(map$dependencies, list(plugin))
-    map
-  }
-  heatPlugin <- htmlDependency("Leaflet.heat", "99.99.99",
-                               src = c(href = "http://leaflet.github.io/Leaflet.heat/dist/"),
-                               script = "leaflet-heat.js"
-  )
+full_study_visualizer <- function() {
+  ema_enroll <- ema %>%
+    mutate(pid = as.numeric(pid)) %>%
+    left_join(new_enroll, by = "pid") %>%
+    filter(!is.na(housing_status)) %>%
+    filter(ema_prompt_status == "Completed")
+  ggplot(data = ema_enroll, aes(fill=housing_status, x=alcohol)) +
+    geom_bar(position="dodge")
   
-  leaflet() %>%
-    addTiles() %>%
-    fitBounds(min(gps_data$longitude), min(gps_data$latitude), max(gps_data$longitude), max(gps_data$latitude)) %>%
-    registerPlugin(heatPlugin) %>%
-    onRender(paste0("function(el, x, data) {
-    data = HTMLWidgets.dataframeToD3(data);
-    data = data.map(function(val) { return [val.latitude, val.longitude]; });
-    L.heatLayer(data, {radius: ",radius,"}).addTo(this);
-  }"), data = gps_data %>% select(latitude, longitude))
-}
-
-buffer_zone <- function(housing_geo, get_housing_name, data_id_only, domap = FALSE, fast = FALSE) {
-  house_point <- housing_geo %>%
-    filter(housing_building_name == get_housing_name) %>%
-    select(longitude,latitude)
-  if(nrow(house_point)==0){
-    data_id_only[, athome := NA]
-    return(data_id_only)
-  } else {
-    house_sp <- SpatialPoints(coords = house_point, proj4string = CRS("+init=epsg:4326"))
-    house_buffer <- buffer(house_sp, width=150)
-    
-    gps_data <- as.data.table(data_id_only)
-    if(!fast){
-      for(i in 1:nrow(gps_data)){
-        point_loc <- SpatialPoints(coords = gps_data[i,c("longitude","latitude")], proj4string = CRS("+init=epsg:4326"))
-        doesint <- gIntersects(house_buffer,point_loc)
-        gps_data[i, athome := doesint]
-      }
-    } else {
-      point_loc <- SpatialPoints(coords = gps_data[,c("longitude","latitude")], proj4string = CRS("+init=epsg:4326"))
-      over_array <- !is.na(over(point_loc,house_buffer))
-      gps_data[, athome := over_array]
-    }
-    if(!domap){
-      return(gps_data)
-    } else{
-      point_loc <- SpatialPoints(coords = gps_data[,c("longitude","latitude")], proj4string = CRS("+init=epsg:4326"))
-      leaflet(house_buffer) %>%
-        addPolygons() %>%
-        addTiles() %>%
-        addMarkers(data = point_loc)
-    }
-  }
-}
-
-enhance_gps <- function(gps, new_enroll, housing_geo, day_level = FALSE){
-  convert_gps <- gps %>%
-    mutate(pid = as.numeric(file_id)) %>%
-    mutate(date = as.Date(fulltime, origin = "1970-01-01", tz = "America/Los_Angeles")) %>%
-    as.data.table()
+  ggplot(data = ema_enroll, aes(fill=housing_status, x=drugs)) +
+    geom_bar(position="dodge")
   
-  core_count <- detectCores() - 1L
-  registerDoParallel(cores = core_count) 
-  
-  enhanced_gps <- foreach(i = unique(convert_gps$pid), .combine = "rbind") %dopar% {
-    #print(i)
-    #i = 1026
-    enroll_housing <- as.character(filter(new_enroll,pid == i)[1,"housing_building_name"])
-    id_only_data <- convert_gps[pid == i]
-    buffer_zone(housing_geo,enroll_housing,id_only_data, fast = TRUE)
-  }
-  
-  day_space <- gps_per_day(gps)
-  merge_day <- enhanced_gps %>%
-    left_join(day_space, by = c("file_id","date")) %>%
-    as.data.table()
-  
-  if(day_level){
-    merge_day <- merge_day %>%
-      group_by(pid,date) %>%
-      summarize(day_lat = mean(latitude, na.rm = TRUE), day_long = mean(longitude, na.rm = TRUE), day_pts = n(),
-                athome_prop = mean(athome, na.rm = TRUE), mch_area = mean(mch_area_km, na.rm = TRUE), sde_area = mean(sde_area_km, na.rm = TRUE)) %>%
-      as.data.table()
-  }
-  
-  return(merge_day)
-}
-
-
-gps_per_day <- function(gps_data = NULL, multicore = TRUE) {
-  if(is.null(gps_data)){
-    data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
-    gps <- read_gps(data_dirname, wockets_dirname, manual_dirname, TRUE, TRUE) %>%
-      mutate(date = as.Date(fulltime, origin = "1970-01-01", tz = "America/Los_Angeles")) %>%
-      as.data.table() 
-  } else {
-    gps <- gps_data %>%
-      mutate(date = as.Date(fulltime, origin = "1970-01-01", tz = "America/Los_Angeles")) %>%
-      as.data.table()
-  }
-  gps_id_day <- gps %>%
-    group_by(file_id,date) %>%
-    summarize(day_lat = mean(latitude), day_long = mean(longitude), day_pts = n()) %>%
-    as.data.table()
-  
-  gps_ref_temp <- function(gps, gps_id_day, ipos) {
-    temp_df <- gps[date == gps_id_day$date[ipos] & file_id == gps_id_day$file_id[ipos]]
-    temp_df <- temp_df[, c("longitude","latitude"), with = FALSE]
-    attr(temp_df, "old_row") <- rownames(gps_id_day[ipos])[1]
-    return(temp_df)
-  }
-  
-  if(!multicore){
-    temp_df <- gps_ref_temp(gps,gps_id_day,1)
-    con.hull.pos <- chull(temp_df) # find positions of convex hull
-    
-    if(!is_empty(con.hull.pos)){
-      con.hull <- rbind(temp_df[con.hull.pos,],temp_df[con.hull.pos[1],]) # get coordinates for convex hull
-      coordinates(con.hull) <- c("longitude","latitude")
-      proj4string(con.hull) <- CRS("+init=epsg:4326")
-      p <- Polygon(con.hull)
-      ps <- Polygons(list(p),attr(temp_df,"old_row"))
-      sps <- SpatialPolygons(list(ps))
-      proj4string(sps) <- CRS("+init=epsg:4326")
-      sps_proj <- spTransform(sps,CRS("+init=epsg:26945"))
-      area_km <- gArea(sps_proj)/(1000*1000)
-    } else{
-      area_km <- NA
-    }
-    gps_id_day[1,mch_area_km := area_km]
-    
-    for(i in 2:nrow(gps_id_day)){
-      print(i)
-      temp_df <- gps_ref_temp(gps,gps_id_day,i)
-      
-      con.hull.pos <- chull(temp_df) # find positions of convex hull
-      if(!is_empty(con.hull.pos)){
-        con.hull <- rbind(temp_df[con.hull.pos,],temp_df[con.hull.pos[1],]) # get coordinates for convex hull
-        coordinates(con.hull) <- c("longitude","latitude")
-        proj4string(con.hull) <- CRS("+init=epsg:4326")
-        p <- Polygon(con.hull)
-        ps <- Polygons(list(p),attr(temp_df,"old_row"))
-        pre_sps <- SpatialPolygons(list(ps))
-        proj4string(pre_sps) <- CRS("+init=epsg:4326")
-        sps <- bind(sps,pre_sps)
-        sps_proj <- spTransform(pre_sps,CRS("+init=epsg:26945"))
-        area_km <- gArea(sps_proj)/(1000*1000)
-      } else{
-        area_km <- NA
-      }
-      gps_id_day[i,mch_area_km := area_km]
-    }
-    projected <- spTransform(sps,CRS("+init=epsg:26945"))
-    spatial_gps_id_day <- SpatialPolygonsDataFrame(sps,gps_id_day, match.ID = TRUE)
-    
-    for(j in unique(gps_id_day$file_id)){
-      print(j)
-      subset_sdf <- subset(spatial_gps_id_day, file_id == j)  
-      subset_sp <- SpatialPolygons(subset_sdf@polygons, proj4string = subset_sdf@proj4string)
-      subset_st <- spTransform(subset_sp,CRS("+init=epsg:26945"))
-      
-      base_intersect <- gIntersection(subset_st[1],subset_st[2])
-      for(i in 2:(length(subset_st)-1)){
-        base_intersect <- gIntersection(base_intersect,subset_st[i+1])
-      }
-      gps_id_day[file_id == j, overlap := gArea(base_intersect)]
-    }
-  } else {
-    core_count <- detectCores() - 1L
-    registerDoParallel(cores = core_count) 
-    
-    area_km <- foreach(i = 1:nrow(gps_id_day), .combine = "c") %dopar% {
-      temp_df <- gps_ref_temp(gps,gps_id_day,i)
-      con.hull.pos <- chull(temp_df) # find positions of convex hull
-      if(!is_empty(con.hull.pos)){
-        con.hull <- rbind(temp_df[con.hull.pos,],temp_df[con.hull.pos[1],]) # get coordinates for convex hull
-        coordinates(con.hull) <- c("longitude","latitude")
-        proj4string(con.hull) <- CRS("+init=epsg:4326")
-        p <- Polygon(con.hull)
-        ps <- Polygons(list(p),attr(temp_df,"old_row"))
-        pre_sps <- SpatialPolygons(list(ps))
-        proj4string(pre_sps) <- CRS("+init=epsg:4326")
-        #sps <- bind(sps,pre_sps)
-        sps_proj <- spTransform(pre_sps,CRS("+init=epsg:26945"))
-        gArea(sps_proj)/(1000*1000)
-      } else {
-        NA
-      }
-    }
-    gps_id_day[, mch_area_km := area_km]
-    
-    area_km <- foreach(i = 1:nrow(gps_id_day), .combine = "c") %dopar% {
-      temp_df <- gps_ref_temp(gps,gps_id_day,i)
-      sde_points <- tryCatch(
-        {
-          calc_sde(points = temp_df[, list(longitude, latitude)])
-        },
-        error=function(cond) {
-          NULL
-        },
-        warning=function(cond) {
-          NULL
-        },
-        finally={}
-      )    
-      if(!is_empty(sde_points)){
-        sde_points <- na.omit(sde_points)
-        if(nrow(sde_points)>0){
-          sde_poly <- Polygon(sde_points[, c("x","y")])
-          sde_mp <- Polygons(list(sde_poly),i)
-          sde_sp <- SpatialPolygons(list(sde_mp))
-          proj4string(sde_sp) <- CRS("+init=epsg:4326")
-          sps_proj <- spTransform(sde_sp,CRS("+init=epsg:26945"))
-          gArea(sps_proj)/(1000*1000)
-        } else {
-          NA
-        }
-      } else {
-        NA
-      }
-    }
-    gps_id_day[, sde_area_km := area_km]
-  }
-  
-  return(gps_id_day)
-}
-
-dummy3 <- function() {
-  enrollment_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/_Raw Data/TSV"
-  data_dirname <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level"
-  #enroll_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Prompt Level/enroll_sheet.csv"
-  
-  ema <- tidy_ema(data_dirname, wockets_dirname,manual_dirname,TRUE,FALSE,FALSE,TRUE)
-  daily <- tidy_daily(data_dirname,wockets_dirname,manual_dirname,"",TRUE,TRUE,TRUE)
-  gps <- read_gps(data_dirname, wockets_dirname, manual_dirname, TRUE, TRUE)
-  
-  write_dta(ema,paste(data_dirname,"ema.dta",sep = "/"))
-  write_dta(daily,paste(data_dirname,"daily.dta",sep = "/"))
-  write_dta(gps,paste(data_dirname,"gps.dta",sep = "/"))
-
-  #ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
-  #enroll_filepath <- "C:/Users/dzubur/Desktop/LML Raw Data/enroll_sheet.csv"
-  enroll <- read_csv(enroll_filepath) %>%
-    transmute(system_file = as.character(PID_master),
-              enroll = as_date(Date_PhoneSetup, format = "%m/%d/%y", tz = ""),
-              end = enroll + 8)
-  
-  ema_new <- ema %>%
-    left_join(enroll, by = "system_file") %>%
-    mutate(date = as_date(PromptDate, tz = ""),
-           day = date - enroll + 1) %>%
-    filter(date <= end & date >= enroll)
-  write_dta(ema_new,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Team/Sara/ema_data.dta")
-  #write_dta(ema_new,"C:/Users/dzubur/Desktop/ema_data.dta")
-  
-  ## NEW UNALTERED ALGORITHM
-  
-  daily_sleep_new <- daily %>%
-    filter(prompt_status == "Completed") %>%
-    select(subject_id,prompt_date,wake_hour,wake_minute,sleep_hour,sleep_minute,no_sleep) %>%
-    mutate(date_now = as.Date(prompt_date, origin = "1970-01-01", tz = "America/Los_Angeles"),
-           date_yesterday = date_now - days(),
-           reverse_code = ifelse((wake_hour + wake_minute/60) > (sleep_hour + sleep_minute/60),1,0)) %>%
-    mutate(wake_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(wake_hour,2,pad="0"),":",str_pad(wake_minute,2,pad = "0")),
-           sleep_time = paste0(format(date_yesterday,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0"))) %>%
-    mutate_at(vars(ends_with("time")),funs(as.POSIXct(., format = "%Y-%m-%d %H:%M", origin = "1970-01-01", tz = "America/Los_Angeles"))) %>%
-    mutate(wake_sleep = difftime(wake_time,sleep_time,units = "hours"))
-  trust_sleep_new <- daily_sleep_new %>%
-    filter(as.numeric(wake_sleep)<= 14 & as.numeric(wake_sleep)>= 2)
-  donttrust_sleep_new <- daily_sleep_new %>%
-    filter(as.numeric(wake_sleep) > 14 | as.numeric(wake_sleep) < 2)
-  
-  daily_sleep <- daily %>%
-    filter(prompt_status == "Completed") %>%
-    select(subject_id,prompt_date,wake_hour,wake_minute,sleep_hour,sleep_minute,no_sleep) %>%
-    mutate(date_now = as.Date(prompt_date, origin = "1970-01-01", tz = "America/Los_Angeles"),
-           date_yesterday = date_now - days(),
-           og_wake_hour = wake_hour,
-           og_sleep_hour = sleep_hour,
-           og_wake_min = wake_minute,
-           og_sleep_min = sleep_minute) %>%
-    mutate(wake_hour = ifelse(wake_hour > 12, wake_hour - 12, wake_hour),
-           sleep_hour = ifelse(sleep_hour > 12, sleep_hour - 12, sleep_hour)) %>%
-    mutate(wake_am_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(wake_hour,2,pad="0"),":",str_pad(wake_minute,2,pad = "0")," AM"),
-           wake_pm_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(wake_hour,2,pad="0"),":",str_pad(wake_minute,2,pad = "0"), " PM"),
-           sleep_am_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0")," AM"),
-           sleep_pm_time = paste0(format(date_yesterday,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0"), " PM")) %>%
-    mutate_at(vars(ends_with("time")),funs(as.POSIXct(., format = "%Y-%m-%d %I:%M %p", origin = "1970-01-01", tz = "America/Los_Angeles"))) %>%
-    mutate(wakeam_sleepam = difftime(wake_am_time,sleep_am_time,units = "hours"),
-           wakeam_sleeppm = difftime(wake_am_time,sleep_pm_time,units = "hours"),
-           wakepm_sleepam = difftime(wake_pm_time,sleep_am_time,units = "hours"),
-           wakepm_sleeppm = difftime(wake_pm_time,sleep_pm_time,units = "hours")) %>%
-    mutate(aa_bin = ifelse(wakeam_sleepam > 0 & wakeam_sleepam < 24,1,0),
-           ap_bin = ifelse(wakeam_sleeppm > 0 & wakeam_sleeppm < 24,1,0),
-           pa_bin = ifelse(wakepm_sleepam > 0 & wakepm_sleepam < 24,1,0),
-           pp_bin = ifelse(wakepm_sleeppm > 0 & wakepm_sleeppm < 24,1,0))
-  
-  writeout <- daily_sleep %>%
-    left_join(enroll,by=c("subject_id")) %>%
-    filter(enroll_start <= prompt_date & enroll_end >= prompt_date) 
-  
-  sleep_hour <- daily %>%
-    select(subject_id,prompt_date,prompt_time,prompt_status) %>%
-    filter(prompt_status == "Completed") %>%
-    mutate(prompt_time = str_replace(prompt_time,"PDT",""),
-           prompt_time = str_replace(prompt_time,"PST",""),
-           fulltime = as.POSIXct(prompt_time, format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01", tz = "America/Los_Angeles"),
-           survey_hour = hour(fulltime)) %>%
-    select(subject_id,prompt_date,survey_hour)
-  
-  merge_gps <- gps
-  merge_gps[, date := as.Date(fulltime, origin = "1970-01-01", tz = "America/Los_Angeles")]
-  
-  df_count <- nrow(daily_sleep)
-  temp_daily <- as.data.table(daily_sleep)
-  core_count <- detectCores() - 1L
-  registerDoParallel(cores = core_count)
-  
-  # WAKE AM SLEEP AM
-  time_amam <- foreach(i=1:df_count, .combine = rbind, .packages = c("data.table")) %dopar% {
-    if(!is.na(temp_daily[i,aa_bin]) && temp_daily[i,aa_bin] == 1){
-      max_time <- temp_daily[i, wake_am_time]
-      min_time <- temp_daily[i, sleep_am_time]
-      temp_id <- temp_daily[i,subject_id]
-      temp_date <- temp_daily[i,prompt_date]
-      temp_gps <- merge_gps[fulltime <= max_time & fulltime >= min_time & file_id == temp_id]
-      if(nrow(temp_gps) > 0){
-        temp_gps[, longitude_lag := shift(longitude, type = "lag")]
-        temp_gps[, latitude_lag := shift(latitude, type = "lag")]
-        temp_gps[, fulltime_lag := shift(fulltime, type = "lag")]
-        temp_gps[, distance := distHaversine(temp_gps[,.(longitude,latitude)],
-                                             temp_gps[,.(longitude_lag,latitude_lag)])]
-        temp_gps[, timedif := difftime(fulltime,fulltime_lag, units = "mins")]
-        temp_gps[, velocity := distance/as.numeric(timedif)]
-        collapsed_gps <- temp_gps[,lapply(.SD, mean, na.rm=TRUE),by = file_id]
-        collapsed_gps[,.(subject_id = file_id, date_now = date, velocity_aa = velocity )]
-      } else {
-        temp_return <- temp_daily[i,.(subject_id,date_now)]
-        temp_return[, velocity_aa := NA]
-        temp_return  
-      }
-    } else {
-      temp_return <- temp_daily[i,.(subject_id,date_now)]
-      temp_return[, velocity_aa := NA]
-      temp_return
-    }
-  }
-  
-  # WAKE AM SLEEP PM
-  time_ampm <- foreach(i=1:df_count, .combine = rbind, .packages = c("data.table")) %dopar% {
-    if(!is.na(temp_daily[i,ap_bin]) && temp_daily[i,ap_bin] == 1){
-      max_time <- temp_daily[i, wake_am_time]
-      min_time <- temp_daily[i, sleep_pm_time]
-      temp_id <- temp_daily[i,subject_id]
-      temp_date <- temp_daily[i,prompt_date]
-      temp_gps <- merge_gps[fulltime <= max_time & fulltime >= min_time & file_id == temp_id]
-      if(nrow(temp_gps) > 0){
-        temp_gps[, longitude_lag := shift(longitude, type = "lag")]
-        temp_gps[, latitude_lag := shift(latitude, type = "lag")]
-        temp_gps[, fulltime_lag := shift(fulltime, type = "lag")]
-        temp_gps[, distance := distHaversine(temp_gps[,.(longitude,latitude)],
-                                             temp_gps[,.(longitude_lag,latitude_lag)])]
-        temp_gps[, timedif := difftime(fulltime,fulltime_lag, units = "mins")]
-        temp_gps[, velocity := distance/as.numeric(timedif)]
-        collapsed_gps <- temp_gps[,lapply(.SD, mean, na.rm=TRUE),by = file_id]
-        collapsed_gps[,.(subject_id = file_id, date_now = date, velocity_ap = velocity )]
-      } else {
-        temp_return <- temp_daily[i,.(subject_id,date_now)]
-        temp_return[, velocity_ap := NA]
-        temp_return  
-      }
-    } else {
-      temp_return <- temp_daily[i,.(subject_id,date_now)]
-      temp_return[, velocity_ap := NA]
-      temp_return
-    }
-  }
-  
-  # WAKE PM SLEEP AM
-  time_pmam <- foreach(i=1:df_count, .combine = rbind, .packages = c("data.table")) %dopar% {
-    if(!is.na(temp_daily[i,pa_bin]) && temp_daily[i,pa_bin] == 1){
-      max_time <- temp_daily[i, wake_pm_time]
-      min_time <- temp_daily[i, sleep_am_time]
-      temp_id <- temp_daily[i,subject_id]
-      temp_date <- temp_daily[i,prompt_date]
-      temp_gps <- merge_gps[fulltime <= max_time & fulltime >= min_time & file_id == temp_id]
-      if(nrow(temp_gps) > 0){
-        temp_gps[, longitude_lag := shift(longitude, type = "lag")]
-        temp_gps[, latitude_lag := shift(latitude, type = "lag")]
-        temp_gps[, fulltime_lag := shift(fulltime, type = "lag")]
-        temp_gps[, distance := distHaversine(temp_gps[,.(longitude,latitude)],
-                                             temp_gps[,.(longitude_lag,latitude_lag)])]
-        temp_gps[, timedif := difftime(fulltime,fulltime_lag, units = "mins")]
-        temp_gps[, velocity := distance/as.numeric(timedif)]
-        collapsed_gps <- temp_gps[,lapply(.SD, mean, na.rm=TRUE),by = file_id]
-        collapsed_gps[,.(subject_id = file_id, date_now = date, velocity_pa = velocity )]
-      } else {
-        temp_return <- temp_daily[i,.(subject_id,date_now)]
-        temp_return[, velocity_pa := NA]
-        temp_return  
-      }
-    } else {
-      temp_return <- temp_daily[i,.(subject_id,date_now)]
-      temp_return[, velocity_pa := NA]
-      temp_return
-    }
-  }
-  
-  # WAKE PM SLEEP PM
-  time_pmpm <- foreach(i=1:df_count, .combine = rbind, .packages = c("data.table")) %dopar% {
-    if(!is.na(temp_daily[i,pp_bin]) && temp_daily[i,pp_bin] == 1){
-      max_time <- temp_daily[i, wake_pm_time]
-      min_time <- temp_daily[i, sleep_pm_time]
-      temp_id <- temp_daily[i,subject_id]
-      temp_date <- temp_daily[i,prompt_date]
-      temp_gps <- merge_gps[fulltime <= max_time & fulltime >= min_time & file_id == temp_id]
-      if(nrow(temp_gps) > 0){
-        temp_gps[, longitude_lag := shift(longitude, type = "lag")]
-        temp_gps[, latitude_lag := shift(latitude, type = "lag")]
-        temp_gps[, fulltime_lag := shift(fulltime, type = "lag")]
-        temp_gps[, distance := distHaversine(temp_gps[,.(longitude,latitude)],
-                                             temp_gps[,.(longitude_lag,latitude_lag)])]
-        temp_gps[, timedif := difftime(fulltime,fulltime_lag, units = "mins")]
-        temp_gps[, velocity := distance/as.numeric(timedif)]
-        collapsed_gps <- temp_gps[,lapply(.SD, mean, na.rm=TRUE),by = file_id]
-        collapsed_gps[,.(subject_id = file_id, date_now = date, velocity_pp = velocity )]
-      } else {
-        temp_return <- temp_daily[i,.(subject_id,date_now)]
-        temp_return[, velocity_pp := NA]
-        temp_return  
-      }
-    } else {
-      temp_return <- temp_daily[i,.(subject_id,date_now)]
-      temp_return[, velocity_pp := NA]
-      temp_return
-    }
-  }
-  
-  enroll <- clean_enrollment(enrollment_dirname) %>%
-    mutate(subject_id = as.character(file_id)) %>%
-    select(-file_id)
-    
-  
-  enroll_sleep <- read_csv(paste(data_dirname,"enrollment.csv", sep = "/")) %>%
-    select(subject_id = PID_master,sleeptime,waketime) %>%
-    mutate(sleep = str_split_fixed(sleeptime,":",n=2)[,1],
-           wake = str_split_fixed(waketime,":",n=2)[,1],
-           duration = as.integer(wake)-as.integer(sleep),
-           duration = ifelse(duration < 0,duration + 24,duration))
-  
-  merged_sleep <- daily_sleep %>%
-    bind_cols(time_amam, time_ampm, time_pmam, time_pmpm,sleep_hour) %>%
-    rowwise() %>%
-    mutate(min_velocity= min(velocity_aa,velocity_ap,velocity_pa,velocity_pp, na.rm = TRUE))
-  
-  max_sleep = 16
-  min_sleep = 0
-  
-  algo_sleep <- merged_sleep %>%
-    mutate(hour_wake_morning = hour(wake_am_time),
-           hour_wake_afternoon = hour(wake_pm_time)) %>%
-    mutate(possible_aa = ifelse(survey_hour >= hour_wake_morning,1,0),
-           possible_ap = ifelse(survey_hour >= hour_wake_morning,1,0),
-           possible_pa = ifelse(survey_hour >= hour_wake_afternoon,1,0),
-           possible_pp = ifelse(survey_hour >= hour_wake_afternoon,1,0)) %>%
-    mutate(match_aa = ifelse(wakeam_sleepam > min_sleep & wakeam_sleepam < max_sleep && possible_aa == 1 && (!is.na(aa_bin) && aa_bin == 1) && (is.na(velocity_aa) | min_velocity == velocity_aa),"aa",""),
-           match_ap = ifelse(wakeam_sleeppm > min_sleep & wakeam_sleeppm < max_sleep && possible_ap == 1 && (!is.na(ap_bin) && ap_bin == 1) && (is.na(velocity_ap) | min_velocity == velocity_ap),"ap",""),
-           match_pa = ifelse(wakepm_sleepam > min_sleep & wakepm_sleepam < max_sleep && possible_pa == 1 && (!is.na(pa_bin) && pa_bin == 1) && (is.na(velocity_pa) | min_velocity == velocity_pa),"pa",""),
-           match_pp = ifelse(wakepm_sleeppm > min_sleep & wakepm_sleeppm < max_sleep && possible_pp == 1 && (!is.na(pp_bin) && pp_bin == 1) && (is.na(velocity_pp) | min_velocity == velocity_pp),"pp","")) %>%
-   mutate_at(vars(starts_with("match")),funs(ifelse(is.na(.),"",.))) %>%
-    mutate(sleep_decision = paste(match_aa,match_ap,match_pa,match_pp,sep=",")) %>%
-    mutate(time_aa = ifelse(possible_aa == 1 && (!is.na(aa_bin) && aa_bin == 1) && wakeam_sleepam > min_sleep && wakeam_sleepam < max_sleep,"aa",""),
-           time_ap = ifelse(possible_ap == 1 && (!is.na(ap_bin) && ap_bin == 1) && wakeam_sleeppm > min_sleep && wakeam_sleeppm < max_sleep,"ap",""),
-           time_pa = ifelse(possible_pa == 1 && (!is.na(pa_bin) && pa_bin == 1) && wakepm_sleepam > min_sleep && wakepm_sleepam < max_sleep,"pa",""),
-           time_pp = ifelse(possible_pp == 1 && (!is.na(pp_bin) && pp_bin == 1) && wakepm_sleeppm > min_sleep && wakepm_sleeppm < max_sleep,"pp","")) %>%
-    mutate(time_decision = paste(time_aa,time_ap,time_pa,time_pp,sep=","),
-           new_sleep1 = ifelse(sleep_decision == "aa,,,",wakeam_sleepam,
-                               ifelse(sleep_decision == ",ap,," || sleep_decision == ",,pa," || sleep_decision == ",ap,pa,",wakeam_sleeppm,
-                                      ifelse(sleep_decision == ",,,pp",wakepm_sleeppm,NA))),
-           has_decision = ifelse(!is.na(new_sleep1),1,0)) %>%
-    mutate(mt_aa = ifelse(has_decision == 1,match_aa,time_aa), # ifelse(possible_aa == 1 && (!is.na(aa_bin) && aa_bin == 1) ,"aa",""), # 
-           mt_ap = ifelse(has_decision == 1,match_ap,time_ap), # ifelse(possible_ap == 1 && (!is.na(ap_bin) && ap_bin == 1) ,"ap",""), # 
-           mt_pa = ifelse(has_decision == 1,match_pa,time_pa), # ifelse(possible_pa == 1 && (!is.na(pa_bin) && pa_bin == 1) ,"pa",""), # 
-           mt_pp = ifelse(has_decision == 1,match_pp,time_pp), # ifelse(possible_pp == 1 && (!is.na(pp_bin) && pp_bin == 1) ,"pp",""), # 
-           mt_decision = paste(mt_aa,mt_ap,mt_pa,mt_pp,sep=","),
-           new_sleep2 = ifelse(mt_decision == "aa,,,",wakeam_sleepam,
-                       ifelse(mt_decision == ",ap,," || mt_decision == ",,pa," || mt_decision == ",ap,pa,",wakeam_sleeppm,
-                       ifelse(mt_decision == ",,,pp",wakepm_sleeppm,NA))),
-           new_sleep3 = ifelse(no_sleep == 1,0,new_sleep2)) %>%
-    left_join(enroll,by=c("subject_id")) %>%
-    filter(enroll_start <= prompt_date & enroll_end >= prompt_date) %>%
-    select(subject_id,prompt_date,new_sleep_duration = new_sleep3)
-  
-  written_out <- daily %>%
-    filter(prompt_status == "Completed") %>%
-    left_join(algo_sleep,by = c("subject_id","prompt_date")) %>%
-    left_join(enroll,by=c("subject_id")) %>%
-    filter(enroll_start <= prompt_date & enroll_end >= prompt_date)
-  
-  write_dta(written_out,paste(data_dirname,"sleep_daily.dta", sep = "/"))
-                                     
-    
-  
-  
-
-  
-  
-    
-}
-
-dummy2 <- function(){
-daily <- tidy_daily(data_dirname, wockets_dirname, manual_dirname, sni_stata_filename)
-new_gps <- tidy_gps(data_dirname, wockets_dirname, manual_dirname)
-enroll <- clean_enrollment(enrollment_dirname)
-new_ema <- new_gps %>%
-  mutate(file_id = as.integer(system_file)) %>%
-  left_join(enroll, by = "file_id")
-new_gps2 <- rename(new_ema,alcohol_social_other_stfriends = alcohol_social_other_streetfriends,
-                   tempted_social_other_stfriends = tempted_social_other_streetfriends)
-write_dta(new_gps2,paste(data_dirname,"gps.dta", sep = "/"))
-
-new_daily <- daily %>%
-  mutate(file_id = as.integer(subject_id)) %>%
-  left_join(enroll, by = "file_id")
-write_dta(new_daily,paste(data_dirname,"daily.dta", sep = "/"))
-
-all_gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
-write_dta(all_gps,paste(data_dirname,"gps_all.dta", sep = "/"))
-
-
-  
-#ema <- tidy_ema(data_dirname, wockets_dirname, manual_dirname)
-#ema2 <- rename(ema,alcohol_social_other_stfriends = alcohol_social_other_streetfriends,
-#               tempted_social_other_stfriends = tempted_social_other_streetfriends)
-#write_dta(ema2,paste0(data_dirname,"ema.dta"))
-#write_dta(daily,paste0(data_dirname,"daily.dta"))
-#new_gps2 <- rename(new_gps,alcohol_social_other_stfriends = alcohol_social_other_streetfriends,
-#               tempted_social_other_stfriends = tempted_social_other_streetfriends)
-#write_dta(new_gps2,paste0(data_dirname,"gps.dta"))
-}
-
-daily_gps <- function(data_dirname, wockets_dirname, manual_dirname){
   
 }
 
-
-dummy_fnc <- function(data_dirname){
+full_study_adapter <- function() {
+  v1_data <<- v1_fix_errors(main_filepath,v1_filepath,TRUE)
+  v2_data <<- v2_fix_errors(main_filepath,v2_filepath,TRUE)
+  v3_data <<- v3_fix_errors(main_filepath,v30_filepath,v31_filepath,TRUE)
+  v4_data <<- v4_fix_errors(main_filepath,v4_filepath,TRUE)
+  v5_data <<- v5_fix_errors(main_filepath,v5_filepath,TRUE)
+  v6_data <<- v6_fix_errors(main_filepath,v6_filepath,TRUE)
+  v7_data <<- v7_fix_errors(main_filepath,v7_filepath,TRUE)
   
+  v1234_sni <<- sni_fix_errors(main_filepath,v1_sni_filepath,v2_sni_filepath,v3_sni_filepath,v4_sni_filepath) 
   
-  new_gps <- tidy_gps(data_dirname, wockets_dirname, manual_dirname)
-
+  baseline_data <<- version_adapter(v1_data = v1_data,
+                                   v2_data = v2_data,
+                                   v3_data = v3_data,
+                                   v4_data = v4_data,
+                                   v1234_sni = v1234_sni,
+                                   v5_data = v5_data,
+                                   v6_data = v6_data,
+                                   v7_data = v7_data)
   
-  non_valid_gps_prompts <- new_gps %>%
-    transmute(system_file,
-              date = as.Date(PromptDate, tz = "America/Los Angeles", origin = "1970-01-01"),
-              PromptID,
-              PromptTime,
-              has_gps = ifelse(is.na(latitude),0,1)) %>%
-    filter(has_gps == 0) 
+  v2q_data <<- followup_fix_errors(main_filepath,
+                                  v1_v2q_filepath = v1_v2q_filepath,
+                                  v2_v2q_filepath = v2_v2q_filepath,
+                                  v3_v2q_filepath = v3_v2q_filepath,
+                                  v4_v2q_filepath = v4_v2q_filepath,
+                                  v5_v2q_filepath = v5_v2q_filepath,
+                                  v6_v2q_filepath = v6_v2q_filepath,
+                                  v7_v2q_filepath = v7_v2q_filepath)
   
-  non_valid_gps_days <- new_gps %>%
-    transmute(system_file,
-              date = as.Date(PromptDate, tz = "America/Los Angeles", origin = "1970-01-01"),
-              gps_count = ifelse(is.na(latitude),0,1),
-              ema_count = 1) %>%
-    group_by(system_file, date) %>%
-    summarize_all(funs(sum)) %>%
-    mutate(gps_prop = gps_count/ema_count,
-           invalid_day = ifelse(gps_prop == 0,1,0)) %>%
-    filter(invalid_day == 1) 
+  new_baseline <<- clean_baseline(baseline_data)
+  tidy_baseline <<- tidy_name_adapter(main_filepath,new_baseline,"bl")
+  new_followup <<- clean_followup(v2q_data)
+  tidy_followup <<- tidy_name_adapter(main_filepath,new_followup,"v2q")
+  new_enroll <<- clean_enrollment(enrollment_dirname)
   
-  non_valid_gps_ids <- non_valid_gps_days %>%
-    select(-gps_count,-ema_count,-gps_prop,-date) %>%
-    group_by(system_file) %>%
-    summarize_all(funs(sum)) %>%
-    mutate(invalid_id = ifelse(invalid_day > 2,1,0)) %>%
-    filter(invalid_id == 1)
+  ema <<- tidy_ema(data_dirname, wockets_dirname,manual_dirname,new_baseline,new_enroll,FALSE,FALSE,TRUE)
+  write_dta(ema,paste0(data_dirname,"/ema_sni.dta"))
+  daily <<- tidy_daily(data_dirname, wockets_dirname,manual_dirname,new_baseline,new_enroll,FALSE,FALSE,TRUE)
+  write_dta(daily,paste0(data_dirname,"/daily_sni.dta"))
   
-  write_csv(non_valid_gps_days,paste(data_dirname,"nonvalid_days.csv", sep = "/"))
-  write_csv(non_valid_gps_ids,paste(data_dirname,"nonvalid_ids.csv", sep = "/"))
-  write_csv(non_valid_gps_prompts,paste(data_dirname,"nonvalid_prompts.csv", sep = "/"))
-  
-  library(lubridate)
-  library(aspace)
-  testgps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
-  
-  test <- testgps[file_id == "2020"]
-  test[,date := as.Date(fulltime)]
-  test[, minute := minute((fulltime))]
-  test[, hour := hour((fulltime))]
-  test[, newminute := (minute %/% 2)*2]
-  new_test <- test %>%
-    group_by(file_id,date,hour,newminute) %>%
-    summarize_at(vars(fulltime,latitude,longitude,accuracy), funs(mean))
-  test2 <- new_test %>%
-    ungroup() %>%
-    select(latitude,longitude)
-  
-  
-  library(grDevices)
-  library(sf)
-  library(plotKML)
-  library(maptools)
-  library(leaflet)
-  library(rgeos)
-  # needs rgeos
-  coordproj <- CRS("+proj=longlat +datum=WGS84")
-  coordproj2 <- CRS("+init=epsg:4304")
-  coordprojnew <- CRS("+proj=lcc +lat_1=34.03333333333333 +lat_2=35.46666666666667 +lat_0=33.5 +lon_0=-118 +x_0=2000000 +y_0=500000 +ellps=GRS80 +units=m +no_defs")
-  coordprojnew2 <- CRS("+proj=lcc +lat_1=35.46666666666667 +lat_2=34.03333333333333 +lat_0=33.5 +lon_0=-118 +x_0=2000000 +y_0=500000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs")
-  epsg3006 <- leafletCRS(crsClass = "L.Proj.CRS", code = "EPSG:26945",
-                         proj4def = "+proj=lcc +lat_1=35.46666666666667 +lat_2=34.03333333333333 +lat_0=33.5 +lon_0=-118 +x_0=2000000 +y_0=500000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs",
-                         resolutions = 2^(13:-1))
-  
-  m <- leaflet() %>%
-    addTiles() %>%
-    addPolygons(data = sps) %>%
-  addPolygons(lat = con.hull$latitude, lng = con.hull$longitude)
-  
-  
-  
-  library(grDevices) # load grDevices package
-  all_gps <- read_gps(data_dirname,wockets_dirname,manual_dirname, skip_manual)
-  all_gps[, date := as.Date(fulltime, tz = "America/Los Angeles", origin = "1970-01-01")]
-  all_gps[, system_file := file_id]
-  all_gps2 <- all_gps
-  all_gps <- all_gps2[gps_time_valid == 1 & gps_accuracy_valid == 1]
-  
-  all_ema <- tidy_ema(data_dirname,wockets_dirname,manual_dirname)
-  all_ema <- as.data.table(all_ema)
-  all_ema[, PromptTime := str_replace(PromptTime,"PDT","")]
-  all_ema[, ema_time := as.POSIXct(PromptTime, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01")]
-  all_ema[, date := as.Date(ema_time,  tz = "America/Los Angeles", origin = "1970-01-01")]
-  
-  ema_id_dates <- all_ema %>%
-    group_by(system_file,date) %>%
-    summarize()
-  ema_id_dates <- as.data.table(ema_id_dates)
-  num_id_dates <- nrow(ema_id_dates)
-  
-  i = 1
-  temp_df <- all_gps[date == ema_id_dates$date[i] & system_file == ema_id_dates$system_file[i]]
-  temp_df <- select(temp_df,latitude,longitude)
-  
-  con.hull.pos <- chull(temp_df) # find positions of convex hull
-  if(!is_empty(con.hull.pos)){
-    con.hull <- rbind(temp_df[con.hull.pos,],temp_df[con.hull.pos[1],]) # get coordinates for convex hull
-    coordinates(con.hull) <- c("longitude","latitude")
-    proj4string(con.hull) <- CRS("+init=epsg:4326")
-    p <- Polygon(con.hull)
-    ps <- Polygons(list(p),1)
-    sps <- SpatialPolygons(list(ps))
-    proj4string(sps) <- CRS("+init=epsg:4326")
-    sps_proj <- spTransform(sps,CRS("+init=epsg:26945"))
-    area_km <- gArea(sps_proj)/(1000*1000)
-  } else{
-    area_km <- NA
-  }
-  ema_id_dates[i,mch_area_km := area_km]
-  
-  for(i in 2:num_id_dates){
-    print(i)
-    temp_df <- all_gps[date == ema_id_dates$date[i] & system_file == ema_id_dates$system_file[i]]
-    temp_df <- select(temp_df,latitude,longitude)
-    
-    con.hull.pos <- chull(temp_df) # find positions of convex hull
-    if(!is_empty(con.hull.pos)){
-      con.hull <- rbind(temp_df[con.hull.pos,],temp_df[con.hull.pos[1],]) # get coordinates for convex hull
-      coordinates(con.hull) <- c("longitude","latitude")
-      proj4string(con.hull) <- CRS("+init=epsg:4326")
-      p <- Polygon(con.hull)
-      ps <- Polygons(list(p),1)
-      sps <- SpatialPolygons(list(ps))
-      proj4string(sps) <- CRS("+init=epsg:4326")
-      sps_proj <- spTransform(sps,CRS("+init=epsg:26945"))
-      area_km <- gArea(sps_proj)/(1000*1000)
-    } else{
-      area_km <- NA
-    }
-    ema_id_dates[i,mch_area_km := area_km]
-    
-  }
-  
-  df <- test2
-  con.hull.pos <- chull(df) # find positions of convex hull
-  con.hull <- rbind(df[con.hull.pos,],df[con.hull.pos[1],]) # get coordinates for convex hull
-  coordinates(con.hull) <- c("longitude","latitude")
-  proj4string(con.hull) <- CRS("+init=epsg:4326")
-  p <- Polygon(con.hull)
-  ps <- Polygons(list(p),1)
-  sps <- SpatialPolygons(list(ps))
-  proj4string(sps) <- CRS("+init=epsg:4326")
-  sps_proj <- spTransform(sps,CRS("+init=epsg:26945"))
-  
-  #coordinates(con.hull) <- ~ latitude+longitude
-  #proj4string(con.hull) <- CRS("+init=epsg:4326")
-  #data.proj <- spTransform(data, CRS("+init=epsg:2790"))
-  #data.proj
-  
-  plot(latitude ~ longitude, data = df) # plot data
-  lines(con.hull) # add lines for convex hull
- coordinates(con.hull) <- c("longitude","latitude")
- proj4string(con.hull) <- CRS("+init=epsg:4326")
- 
- 
-  
-  p <- Polygon(con.hull)
-  ps <- Polygons(list(p),1)
-  sls <- SpatialPoints(con.hull,proj4string=coordproj)
-  sps <- SpatialPolygons(list(ps))
-  proj4string(con.hull) <- CRS("+init=epsg:4326")
-  
-  dftest <- data.frame(test = 1)
-  spsdf <- SpatialPolygonsDataFrame(sps,dftest)
-  
+  #housing_geo <- gps_geocode_address()
+  housing_geo <<- read_csv("/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/geocoded_housing.csv")
+  gps <<- read_gps(data_dirname, wockets_dirname, manual_dirname, TRUE, TRUE)
+  ema_gps <<- tidy_gps(data_dirname, ema, gps, new_enroll, housing_geo)
 }
-
-
-## Livability
-# Exc: Sleep apnea?
-#load(paste0(export_dir,"transitions.rdata"))
-#transitions <- as.tibble(transitions)
 
 
 gps_fusion_adapter <- function(new_gps, export_dirname){
@@ -812,7 +112,7 @@ gps_fusion_adapter <- function(new_gps, export_dirname){
            ANYDRUGS_2HR = as.character(drugs), DRUGS_OTHERSUSING = as.character(drugs_social_use),
            TEMPTED_2HR = as.character(tempted), OTHERSUSINGWHENTEMPTED = as.character(tempted_social_use),
            LOCTIMESTAMP = strftime(fulltime, format = "%a %b %d %T %Z %Y")) %>%
-    select(PID = system_file, SURVEYNUMBER = PromptID,PROMPT_REPROMPT = PromptType,
+    select(PID = pid, SURVEYNUMBER = PromptID,PROMPT_REPROMPT = PromptType,
            STATUS = Status, DATE = PromptDate, PROMPTTIME = PromptTime, LOCTIMESTAMP,
            LATITUDE = latitude, LONGITUDE = longitude, ACCURACY = accuracy, CLOSEST5_2HR = Q1_social,
            SOCIAL_OTHER_2HR = Q1_a_socialother, SAFE_NOW,
@@ -842,73 +142,6 @@ gps_fusion_adapter <- function(new_gps, export_dirname){
            LONGITUDE = ifelse(is.na(LONGITUDE), temp_long,LONGITUDE)) %>%
     select(-temp_lat,-temp_long) %>%
     filter(STATUS != "Never Started") 
-  # 
-  # selected_gps <- new_gps %>%
-  #   mutate(WHERE_NOW = as.character(where), DOINGWHAT_NOW = as.character(what),
-  #          HAPPY_NOW = as.character(happy), STRESSED_NOW = as.character(stressed),
-  #          SAD_NOW = as.character(sad), IRRITATED_NOW = as.character(irritated),
-  #          CALM_NOW = as.character(calm), EXCITED_NOW = as.character(excited),
-  #          BORED_NOW = as.character(bored), HUNGRY_NOW = as.character(hungry),
-  #          HAPPY_NOWDS = as.integer(happy), STRESSED_NOWDS = as.integer(stressed),
-  #          SAD_NOWDS = as.integer(sad), IRRITATED_NOWDS = as.integer(irritated),
-  #          CALM_NOWDS = as.integer(calm), EXCITED_NOWDS = as.integer(excited),
-  #          BORED_NOWDS = as.integer(bored), HUNGRY_NOWDS = as.integer(hungry),
-  #          DRINKS_2HR = as.character(alcohol), DRINKS_OTHERSDRINKING = as.character(alcohol_social_use),
-  #          ANYDRUGS_2HR = as.character(drugs), DRUGS_OTHERSUSING = as.character(drugs_social_use),
-  #          TEMPTED_2HR = as.character(tempted), OTHERSUSINGWHENTEMPTED = as.character(tempted_social_use),
-  #          LOCTIMESTAMP = strftime(fulltime, format = "%a %b %d %T %Z %Y")) %>%
-  #   select(PID = system_file, SURVEYNUMBER = PromptID,PROMPT_REPROMPT = PromptType,
-  #          STATUS = Status, DATE = PromptDate, PROMPTTIME = PromptTime, LOCTIMESTAMP,
-  #          LATITUDE = latitude, LONGITUDE = longitude, ACCURACY = accuracy, CLOSEST5_2HR = Q1_social,
-  #          SOCIAL_OTHER_2HR_STAFF = social_other_staff, SOCIAL_OTHER_2HR_STAFF = social_other_staff,
-  #          SOCIAL_OTHER_2HR_HOMEFRIENDS = social_other_homefriends, SOCIAL_OTHER_2HR_STREETFRIENDS = social_other_streetfriends,
-  #          SOCIAL_OTHER_2HR_POLICE = social_other_police, SOCIAL_OTHER_2HR_COWORKER = social_other_coworker,
-  #          SOCIAL_OTHER_2HR_PARTNER = social_other_partner, SOCIAL_OTHER_2HR_STRANGER = social_other_stranger,
-  #          WHERE_NOW, SAFE_NOW, DOINGWHAT_NOW, HAPPY_NOW, STRESSED_NOW, SAD_NOW, IRRITATED_NOW,CALM_NOW,
-  #          EXCITED_NOW, BORED_NOW, HUNGRY_NOW, HAPPY_NOWDS, STRESSED_NOWDS, SAD_NOWDS,
-  #          IRRITATED_NOWDS, CALM_NOWDS, EXCITED_NOWDS, BORED_NOWDS, HUNGRY_NOWDS,
-  #          IMPTEVENT_2HR_LAW = stress_events_law, IMPTEVENT_2HR_NONE = stress_events_none,
-  #          IMPTEVENT_2HR_PHYSICALFIGHT = stress_events_physicalfight, IMPTEVENT_2HR_BADNEWS = stress_events_badnews,
-  #          IMPTEVENT_2HR_GOODNEWS = stress_events_goodnews, IMPTEVENT_2HR_VERBALFIGHT = stress_events_verbalfight,
-  #          TOBACCO_2HR_OTHER = tobacco_other, TOBACCO_2HR_CHEW = tobacco_chew,
-  #          TOBACCO_2HR_VAPE = tobacco_vape, TOBACCO_2HR_NONE = tobacco_none,
-  #          TOBACCO_2HR_PAPER = tobacco_paper, DRINKS_2HR, DRINKS_WHERE_2HR_TRANSIT = alcohol_where_transit,
-  #          DRINKS_WHERE_2HR_APARTMENT = alcohol_where_apartment, DRINKS_WHERE_2HR_OTHER = alcohol_where_other,
-  #          DRINKS_WHERE_2HR_OUTDOORS = alcohol_where_outdoors, DRINKS_WHERE_2HR_BUSINESS = alcohol_where_business,
-  #          DRINKS_WHERE_2HR_OTHERRESIDENCE = alcohol_where_otherresidence, DRINKS_WHERE_2HR_SCHOOLWORK = alcohol_where_schoolwork,
-  #          DRINKS_WHERE_2HR_SERVICE = alcohol_where_service, DRINKS_WHOCLOSE5 = Q12_c_alcohol_who,
-  #          DRINKS_WHOOTHER_FAMILY = alcohol_social_other_family, DRINKS_WHOOTHER_HOMEFRIENDS = alcohol_social_other_homefriends,
-  #          DRINKS_WHOOTHER_STREETFRIENDS = alcohol_social_other_streetfriends, DRINKS_WHOOTHER_COWORKER = alcohol_social_other_coworker,
-  #          DRINKS_WHOOTHER_PARTNER = alcohol_social_other_partner, DRINKS_WHOOTHER_STRANGER = alcohol_social_other_stranger,
-  #          DRINKS_OTHERSDRINKING, ANYDRUGS_2HR, DRUGSTYPE_ECSTACY = drugs_type_ecstasy,
-  #          DRUGSTYPE_ECSTACY = drugs_type_ecstasy, DRUGSTYPE_HALLUCINOGENS = drugs_type_hallucinogens,
-  #          DRUGSTYPE_MARIJUANA = drugs_type_marijuana, DRUGSTYPE_METH = drugs_type_meth,
-  #          DRUGSTYPE_SPICE = drugs_type_spice, DRUGSTYPE_RX = drugs_type_rx,
-  #          DRUGSTYPE_OTHER = drugs_type_other, DRUGSWHERE_TRANSIT = drugs_where_transit,
-  #          DRUGSWHERE_APARTMENT = drugs_where_apartment, DRUGSWHERE_OTHER = drugs_where_other,
-  #          DRUGSWHERE_OUTDOORS = drugs_where_outdoors, DRUGSWHERE_BUSINESS = drugs_where_business,
-  #          DRUGSWHERE_OTHERRESIDENCE = drugs_where_otherresidence, DRUGSWHERE_SCHOOLWORK = drugs_where_schoolwork,
-  #          DRUGSWHERE_SERVICE = drugs_where_service, DRUGSWHO_CLOSE5 = Q13_c_drugs_who,
-  #          DRUGSWHO_OTHER_FAMILY = drugs_social_other_family, DRUGSWHO_OTHER_HOMEFRIENDS = drugs_social_other_homefriends,
-  #          DRUGSWHO_OTHER_STREETFRIENDS = drugs_social_other_streetfriends, DRUGSWHO_OTHER_COWORKER = drugs_social_other_coworker,
-  #          DRUGSWHO_OTHER_PARTNER = drugs_social_other_partner, DRUGSWHO_OTHER_STRANGER = drugs_social_other_stranger,
-  #          DRUGS_OTHERSUSING,TEMPTED_2HR, TEMPTWHERE_TRANSIT = tempted_where_transit,
-  #          TEMPTWHERE_APARTMENT = tempted_where_apartment, TEMPTWHERE_OTHER = tempted_where_other,
-  #          TEMPTWHERE_OUTDOORS = tempted_where_outdoors, TEMPTWHERE_BUSINESS = tempted_where_business,
-  #          TEMPTWHERE_OTHERRESIDENCE = tempted_where_otherresidence, TEMPTWHERE_SCHOOLWORK = tempted_where_schoolwork,
-  #          TEMPTWHERE_SERVICE = tempted_where_service, TEMPTWHO_CLOSE5 = Q14_b_tempted_who,  
-  #          TEMPTWHO_OTHER_FAMILY = tempted_social_other_family, TEMPTWHO_OTHER_HOMEFRIENDS = tempted_social_other_homefriends,
-  #          TEMPTWHO_OTHER_STREETFRIENDS = tempted_social_other_streetfriends, TEMPTWHO_OTHER_COWORKER = tempted_social_other_coworker,
-  #          TEMPTWHO_OTHER_PARTNER = tempted_social_other_partner, TEMPTWHO_OTHER_STRANGER = tempted_social_other_stranger,
-  #          OTHERSUSINGWHENTEMPTED) %>%
-  #   mutate(PA_SUM = (HAPPY_NOWDS + CALM_NOWDS)/2,
-  #          NA_SUM = (STRESSED_NOWDS + SAD_NOWDS + IRRITATED_NOWDS)/3,
-  #          temp_long = runif(nrow(new_gps),-118.808275,-118.501087),
-  #          temp_lat = runif(nrow(new_gps),33.720756,33.989567),
-  #          LATITUDE = ifelse(is.na(LATITUDE),temp_lat,LATITUDE),
-  #          LONGITUDE = ifelse(is.na(LONGITUDE), temp_long,LONGITUDE)) %>%
-  #   select(-temp_lat,-temp_long) %>%
-  #   filter(STATUS != "Never Started") 
   
   mean_affect <- selected_gps %>%
     group_by(PID) %>%
@@ -933,7 +166,7 @@ gps_fusion_adapter <- function(new_gps, export_dirname){
 
 tidy_gps <- function(data_dirname, ema, gps, new_enroll, housing_geo){
   ema_dt <- ema %>%
-    mutate(file_id = system_file) %>%
+    mutate(file_id = pid) %>%
     as.data.table
   ema_dt[, merge_row := .I]
   print("Successfully loaded EMA")
@@ -942,10 +175,10 @@ tidy_gps <- function(data_dirname, ema, gps, new_enroll, housing_geo){
   gps_dt <- gps_dt[, c(append(names(gps),"athome")), with = FALSE]
   print("Successfully loaded GPS")
   
-  ema_premerge <- ema_dt[, c("PromptTime","file_id","merge_row")]
-  ema_premerge[, PromptTime := str_replace(PromptTime,"PDT","")]
-  ema_premerge[, PromptTime := str_replace(PromptTime,"PST","")]
-  ema_premerge[, ema_time := as.POSIXct(PromptTime, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01")]
+  ema_premerge <- ema_dt[, c("ema_prompt_time","file_id","merge_row")]
+  ema_premerge[, ema_prompt_time := str_replace(ema_prompt_time,"PDT","")]
+  ema_premerge[, ema_prompt_time := str_replace(ema_prompt_time,"PST","")]
+  ema_premerge[, ema_time := as.POSIXct(ema_prompt_time, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01")]
 
   num_ema <- nrow(ema_premerge)
   core_count <- detectCores() - 1L
@@ -993,21 +226,18 @@ tidy_gps <- function(data_dirname, ema, gps, new_enroll, housing_geo){
   return(new_gps)
 }
 
-export_person_level <- function(data_dirname, wockets_dirname, manual_dirname, 
-                                sni_stata_filename = "", skip_sni = TRUE, skip_manual = FALSE,
-                                export_dirname = data_dirname, retain_names = FALSE, fast_mode = FALSE){
-  ema <- tidy_gps(data_dirname = data_dirname, wockets_dirname = wockets_dirname, manual_dirname = manual_dirname,
-                  skip_manual = skip_manual, retain_names = retain_names, fast_mode = fast_mode) %>%
-  mutate(participant = system_file)
-  
-  ema_person_compliance <- ema %>%
+export_person_level <- function(data_dirname, ema_gps, daily){
+
+  ema_person_compliance <- ema_gps %>%
+    mutate(participant = pid) %>%
     mutate(comply = ifelse(Status == "Completed",1,0),
            gps_bin = as.integer(!is.na(latitude))) %>%
     group_by(participant) %>%
     summarize_at(vars(ema_compliance = comply,
                       gps_availability = gps_bin),funs(mean(.,na.rm=TRUE)))
   
-  ema_person <- ema %>%
+  ema_person <- ema_gps %>%
+    mutate(participant = pid) %>%
     mutate(alcohol_bin = as.integer(alcohol) != 1,
            drugs_bin = as.integer(drugs) == 1,
            tobacco_bin = as.integer(tobacco_none) != 1,
@@ -1028,18 +258,15 @@ export_person_level <- function(data_dirname, wockets_dirname, manual_dirname,
              ema_meth_events + ema_hallucinogens_events + ema_ecstasy_events) %>%
     left_join(ema_person_compliance, by = "participant")
   
-  daily <- tidy_daily(data_dirname = data_dirname, wockets_dirname = wockets_dirname,
-                      manual_dirname = manual_dirname, sni_stata_filename = sni_stata_filename,skip_sni = skip_sni,
-                      skip_manual = skip_manual, fast_mode = fast_mode) %>%
-    mutate(participant = subject_id)
-  
   daily_person_compliance <- daily %>%
-    mutate(comply = ifelse(prompt_status == "Completed",1,0)) %>%
+    mutate(participant = subject_id) %>%
+    mutate(comply = ifelse(daily_prompt_status == "Completed",1,0)) %>%
     group_by(participant) %>%
     summarize_at(vars(daily_compliance = comply),funs(sum(.,na.rm=TRUE))) %>%
     mutate(daily_compliance = daily_compliance/7)
   
   daily_person <- daily %>%
+    mutate(participant = subject_id) %>%
     group_by(participant) %>%
     summarise_at(vars(daily_alcohol_total = alcohol_use,
                       daily_marijuana_total = marijuana_use,
@@ -1057,13 +284,15 @@ export_person_level <- function(data_dirname, wockets_dirname, manual_dirname,
     left_join(ema_person, by = "participant")
     
   write_csv(daily_person,paste(export_dirname,"export_person.csv", sep = "/"))
+  
   return(TRUE)
 }
 
 
-tidy_daily <- function(data_dirname, wockets_dirname, 
-                       manual_dirname, sni_stata_filename = "", 
-                       skip_sni = FALSE, skip_manual = FALSE, fast_mode = FALSE){
+tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname,
+                       new_baseline = NULL, new_enroll = NULL,
+                       skip_manual = FALSE, retain_names = FALSE, 
+                       fast_mode = FALSE){
   if(!fast_mode){
     pre_filtered_dailylog <- write_daily_responses(data_dirname = data_dirname,
                                             wockets_dirname = wockets_dirname,
@@ -1085,10 +314,11 @@ tidy_daily <- function(data_dirname, wockets_dirname,
     mutate_all(funs(ifelse(.=="skipped",NA_character_,.))) %>%
     mutate_all(funs(as.character)) %>%
     select(-Q0_welcome,-Q8_thankyou,-Q3_1_sleeploc_other,-PromptType,-PromptID,-Subject_ID) %>%
-    rename(subject_id = system_file,
-           prompt_date = PromptDate,
-           prompt_time = PromptTime,
-           prompt_status = Status) %>%
+    rename(pid = system_file,
+           daily_prompt_date = PromptDate,
+           daily_prompt_time = PromptTime,
+           daily_prompt_status = Status) %>%
+    mutate(daily_prompt_date = as.Date(daily_prompt_date, format = "%Y-%m-%d", origin = "1970-01-01", tz = "America/Los_Angeles")) %>%
     mutate(Q4_10_a_coke = ifelse(is.na(Q4_10_a_coke),Q4_10_a_coke_number,Q4_10_a_coke)) %>%
     mutate(sleep_quality = factor(Q3_b_sleep_quality,levels = c("Very poor",
                                                           "Poor",
@@ -1132,19 +362,11 @@ tidy_daily <- function(data_dirname, wockets_dirname,
            ) %>%
     bind_cols(drugs_type_daily(.)) %>%
     bind_cols(sex_partners_daily(.)) %>%
-    bind_cols(sex_where_daily(.))
-  if(!skip_sni){
-    return_dailylog <- filtered_dailylog %>%
-      bind_cols(social_daily(., sni_stata_filename, "core")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "alcohol")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "marijuana")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "synthetic")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "meth")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "rx")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "mdma")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "hallucinogen")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "heroin")) %>%
-      bind_cols(social_daily(., sni_stata_filename, "cocaine")) %>%
+    bind_cols(sex_where_daily(.)) %>%
+    bind_cols(multiple_sex_partners(.)) %>%
+    bind_cols(sleepy_time(.))
+  if(!retain_names){
+    filtered_dailylog <- filtered_dailylog %>%
       select(-Q3_sleeploc,-Q1_waketime,-Q2_sleeptime,-Q3_b_sleep_quality,
              -Q4a_substances,-Q4b_substances,-Q4_17_b_other,
              -Q4_2_alcohol,-Q4_2_a_alcohol,
@@ -1157,39 +379,56 @@ tidy_daily <- function(data_dirname, wockets_dirname,
              -Q4_9_heroin,-Q4_9_a_heroin,
              -Q4_10_a_coke,-Q4_10_a_coke_type,-Q4_10_b_coke,-Q4_10_a_coke_number,
              -Q5_sex_partners,-Q5_sex_a_id,-Q7_sex_exchange,-Q7_sex_exchange_where,-Q7_sex_exchange_where_other,
-             -starts_with("R",ignore.case = FALSE),
-             -Q4_0_soccore,-Q4_2_b_alcohol_who,-Q4_3_b_marijuana_who,-Q4_6_b_synthmj_who,
-             -Q4_4_b_meth_who,-Q4_8_b_prescription_who,-Q4_5_b_mdma_who,-Q4_7_b_halluc_who,
-             -Q4_9_b_heroin_who,-Q4_10_c_coke_who
-             ) 
-  } else {
-    return_dailylog <- filtered_dailylog %>%
-      select(-Q3_sleeploc,-Q1_waketime,-Q2_sleeptime,-Q3_b_sleep_quality,
-             -Q4a_substances,-Q4b_substances,-Q4_17_b_other,
-             -Q4_2_alcohol,-Q4_2_a_alcohol,
-             -Q4_3_marijuana,-Q4_3_a_marijuana,
-             -Q4_6_synthmj,
-             -Q4_4_meth,-Q4_4_a_meth,
-             -Q4_8_prescription,-Q4_8_a_prescription,
-             -Q4_5_mdma,-Q4_5_a_mdma,
-             -Q4_7_halluc,
-             -Q4_9_heroin,-Q4_9_a_heroin,
-             -Q4_10_a_coke,-Q4_10_a_coke_type,-Q4_10_b_coke,-Q4_10_a_coke_number,
-             -Q5_sex_partners,-Q5_sex_a_id,-Q7_sex_exchange,-Q7_sex_exchange_where,-Q7_sex_exchange_where_other,
-             -starts_with("R",ignore.case = FALSE),
-             -Q4_0_soccore, -Q4_2_b_alcohol_who, -Q4_3_b_marijuana_who, -Q4_6_b_synthmj_who,
-             -Q4_4_b_meth_who, -Q4_8_b_prescription_who, -Q4_5_b_mdma_who, -Q4_7_b_halluc_who,
-             -Q4_9_b_heroin_who, -Q4_10_c_coke_who
+             -starts_with("R",ignore.case = FALSE)
       )
-    }
-             
+  }
+  if(!is.null(new_baseline)){
+    other_sni_label <- "Someone else not listed here"
+    none_sni_label = "I did not"
+    
+    filtered_dailylog <- filtered_dailylog %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "core")) %>%
+      pipe_print("Core Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "alcdaily")) %>%
+      pipe_print("Alcohol Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "marijuana")) %>%
+      pipe_print("MJ Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "syntheticmj")) %>%
+      pipe_print("Synthetic MJ Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "meth")) %>%
+      pipe_print("Meth Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "rxmisuse")) %>%
+      pipe_print("RX Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "mdma")) %>%
+      pipe_print("MDMA Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "hallucinogen")) %>%
+      pipe_print("Hallucinogen Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "heroin")) %>%
+      pipe_print("Heroin Complete") %>%
+      bind_cols(daily_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "cocaine")) %>%
+      pipe_print("SNI Complete") %>%
+      select(-Q4_0_soccore,-Q4_2_b_alcohol_who, -Q4_3_b_marijuana_who, -Q4_6_b_synthmj_who,
+             -Q4_4_b_meth_who, -Q4_8_b_prescription_who, -Q4_5_b_mdma_who, -Q4_7_b_halluc_who,
+             -Q4_9_b_heroin_who, -Q4_10_c_coke_who)
+  }
+  if(!is.null(new_enroll)){
+    enroll_convert <- new_enroll %>%
+      mutate(pid = as.character(pid)) %>%
+      select(pid, dates_start_app, dates_end_app)
+    
+    filtered_dailylog <- filtered_dailylog %>%
+      left_join(enroll_convert, by = "pid") %>%
+      filter(daily_prompt_date >= dates_start_app & daily_prompt_date <= dates_end_app) %>%
+      select(-dates_start_app,-dates_end_app)
+  }
   
-  return(return_dailylog)
+  return(filtered_dailylog)
 }
 
 tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
-                     remove_sni = TRUE, skip_manual = FALSE, 
-                     retain_names = FALSE, fast_mode = FALSE) {
+                     new_baseline = NULL, new_enroll = NULL,
+                     skip_manual = FALSE, retain_names = FALSE, 
+                     fast_mode = FALSE) {
   if(!fast_mode){
     pre_filtered_ema <- write_ema_responses(data_dirname = data_dirname,
                                             wockets_dirname = wockets_dirname,
@@ -1201,10 +440,18 @@ tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
 
   filtered_ema <- pre_filtered_ema %>%
     mutate_all(funs(as_character)) %>%
+    mutate_at(vars(PromptType),funs(factor(.,levels = c("Prompt","Reprompt")))) %>%
+    rename(pid = system_file,
+           prompt_id = PromptID,
+           prompt_wasreprompt = PromptType,
+           ema_prompt_status = Status,
+           ema_prompt_date = PromptDate,
+           ema_prompt_time = PromptTime) %>%
     filter(!is.na(Subject_ID)) %>%
     mutate_all(funs(ifelse(.=="question is not displayed",NA_character_,.))) %>%
     mutate_all(funs(ifelse(.=="skipped",NA_character_,.))) %>%
     mutate_all(funs(as_character)) %>%
+    mutate(ema_prompt_date = as.Date(ema_prompt_date, format = "%Y-%m-%d", origin = "1970-01-01", tz = "America/Los_Angeles")) %>%
     mutate(subject = substr(str_split_fixed(Subject_ID,"/", n = 7)[,1],4,7)) %>%
     select(-Q0_welcome,-Q15_thankyou,-Q13_a8_drugs_type_other,-Subject_ID) %>%
     rename_at(vars(Q3_happy:Q10_hungry),funs(str_remove(.,"Q[0-9]*_"))) %>%
@@ -1248,9 +495,7 @@ tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
     bind_cols(drugs_who_other_ema(.)) %>%
     bind_cols(tempted_where_ema(.)) %>%
     bind_cols(tempted_who_other_ema(.))
-  if(retain_names){
-    return(filtered_ema)
-  } else {
+  if(!retain_names){
     filtered_ema <- filtered_ema %>%
       select(-Q2_safe,
               -Q2_where,
@@ -1260,9 +505,31 @@ tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
              -Q11_tobacco,
              -Q12_alcohol,-Q12_b_alcohol_where,-Q12_d_alcohol_who_other,-Q12_e_alcohol_who_use,
              -Q13_drugs,-Q13_a_drugs_type,-Q13_b_drugs_where,-Q13_d_drugs_who_other,-Q13_e_drugs_who_use,
-             -Q14_tempted,-Q14_a_tempted_where,-Q14_c_tempted_who_other,-Q14_d_tempted_who_use)
+             -Q14_tempted,-Q14_a_tempted_where,-Q14_c_tempted_who_other,-Q14_d_tempted_who_use,
+             -subject)
   }
-
+  if(!is.null(new_baseline)){
+    other_sni_label <- "Someone else not listed here"
+    none_sni_label = "I have not interacted with anyone"
+    
+    filtered_ema <- filtered_ema %>%
+      bind_cols(ema_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "who")) %>%
+      bind_cols(ema_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "alcema")) %>%
+      bind_cols(ema_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "drugs")) %>%
+      bind_cols(ema_align_sni_alters(., new_baseline, other_sni_label = other_sni_label,none_sni_label = none_sni_label, social_type = "tempted")) %>%
+      select(-Q1_social,-Q12_c_alcohol_who,-Q13_c_drugs_who,-Q14_b_tempted_who)
+  }
+  if(!is.null(new_enroll)){
+    enroll_convert <- new_enroll %>%
+      mutate(pid = as.character(pid)) %>%
+      select(pid, dates_start_app, dates_end_app)
+    
+    filtered_ema <- filtered_ema %>%
+      left_join(enroll_convert, by = "pid") %>%
+      filter(ema_prompt_date >= dates_start_app & ema_prompt_date <= dates_end_app) %>%
+      select(-dates_start_app,-dates_end_app)
+  }
+  
   return(filtered_ema)
 }
 

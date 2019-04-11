@@ -10,6 +10,215 @@ library(tidyverse)
 
 select <- dplyr::select
 
+sleepy_time <- function(filtered_dailylog){
+  return_sleep <- filtered_dailylog %>%
+    select(daily_prompt_date,wake_hour,sleep_hour,sleep_minute,wake_minute,no_sleep) %>%
+    mutate(date_now = daily_prompt_date,
+           date_yesterday = date_now - days(),
+           og_wake_hour = wake_hour,
+           og_sleep_hour = sleep_hour,
+           og_wake_min = wake_minute,
+           og_sleep_min = sleep_minute) %>%
+    mutate(wake_hour = ifelse(wake_hour > 12, wake_hour - 12, wake_hour),
+           sleep_hour = ifelse(sleep_hour > 12, sleep_hour - 12, sleep_hour)) %>%
+    mutate(wake_am_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(wake_hour,2,pad="0"),":",str_pad(wake_minute,2,pad = "0")," AM"),
+           wake_pm_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(wake_hour,2,pad="0"),":",str_pad(wake_minute,2,pad = "0"), " PM"),
+           sleep_am_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0")," AM"),
+           sleep_pm_time = paste0(format(date_yesterday,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0"), " PM")) %>%
+    mutate_at(vars(ends_with("time")),funs(as.POSIXct(., format = "%Y-%m-%d %I:%M %p", origin = "1970-01-01", tz = "America/Los_Angeles"))) %>%
+    mutate(wakeam_sleepam = as.numeric(difftime(wake_am_time,sleep_am_time,units = "hours")),
+           wakeam_sleeppm = as.numeric(difftime(wake_am_time,sleep_pm_time,units = "hours")),
+           wakepm_sleepam = as.numeric(difftime(wake_pm_time,sleep_am_time,units = "hours")),
+           wakepm_sleeppm = as.numeric(difftime(wake_pm_time,sleep_pm_time,units = "hours"))) %>%
+    mutate(aa_bin = ifelse(wakeam_sleepam > 0 & wakeam_sleepam < 24,1,0),
+           ap_bin = ifelse(wakeam_sleeppm > 0 & wakeam_sleeppm < 24,1,0),
+           pa_bin = ifelse(wakepm_sleepam > 0 & wakepm_sleepam < 24,1,0),
+           pp_bin = ifelse(wakepm_sleeppm > 0 & wakepm_sleeppm < 24,1,0)) %>%
+    mutate(duped = ifelse(og_wake_hour == og_sleep_hour & og_wake_min == og_sleep_min,1,0)) %>%
+    mutate(aa_bin = ifelse(wakeam_sleepam < 2,0,aa_bin),
+           aa_bin = ifelse(wakeam_sleepam > 14,0,aa_bin),
+           aa_bin = ifelse(wakeam_sleepam < 0,0,aa_bin)) %>%
+    mutate(ap_bin = ifelse(wakeam_sleeppm < 2,0,ap_bin),
+           ap_bin = ifelse(wakeam_sleeppm > 14,0,ap_bin),
+           ap_bin = ifelse(wakeam_sleeppm < 0,0,ap_bin)) %>%
+    mutate(pa_bin = ifelse(wakepm_sleepam < 2,0,pa_bin),
+           pa_bin = ifelse(wakepm_sleepam > 14,0,pa_bin),
+           pa_bin = ifelse(wakepm_sleepam < 0,0,pa_bin)) %>%
+    mutate(pp_bin = ifelse(wakepm_sleeppm < 2,0,pp_bin),
+           pp_bin = ifelse(wakepm_sleeppm > 14,0,pp_bin),
+           pp_bin = ifelse(wakepm_sleeppm < 0,0,pp_bin)) %>%
+    mutate(decision = rowSums(cbind(aa_bin,ap_bin,pa_bin,pp_bin), na.rm = TRUE)) %>%
+    mutate(decision = ifelse(ap_bin == 1 & pa_bin == 1, decision - 1, decision),
+           decision = ifelse(is.na(wake_am_time),3, decision),
+           decision = ifelse(is.na(sleep_am_time),3, decision),
+           decision = ifelse(duped == 1,0, decision)) %>%
+    mutate(aa_binhold = ifelse(aa_bin == 1,wakeam_sleepam,NA_integer_),
+           ap_binhold = ifelse(ap_bin == 1,wakeam_sleeppm,NA_integer_),
+           pa_binhold = ifelse(pa_bin == 1,wakepm_sleepam,NA_integer_),
+           pp_binhold = ifelse(pp_bin == 1,wakepm_sleeppm,NA_integer_)) %>%
+    mutate(sleep_time = pmax(aa_binhold,ap_binhold,pa_binhold,pp_binhold, na.rm = TRUE)) %>%
+    mutate(sleep_time = ifelse(decision == 1,sleep_time,NA_integer_)) %>%
+    mutate(sleep_time = ifelse(no_sleep == 1,0,sleep_time)) %>%
+    mutate(a_sleep_48 = ifelse(aa_bin == 1,24 + (sleep_hour+sleep_minute/60),NA_integer_),
+           p_sleep_48 = ifelse(ap_bin == 1,(12+sleep_hour+sleep_minute/60),NA_integer_),
+           a_sleep_48 = ifelse(pa_bin == 1,24 + (sleep_hour+sleep_minute/60),a_sleep_48),
+           p_sleep_48 = ifelse(pp_bin == 1,(12+sleep_hour+sleep_minute/60),p_sleep_48),
+           p_sleep_48 = p_sleep_48 - 12*(sleep_hour==12)) %>%
+    mutate(a_wake_48 = ifelse(aa_bin == 1,24 + (wake_hour+wake_minute/60),NA_integer_),
+           a_wake_48 = ifelse(ap_bin == 1,24 + (wake_hour+wake_minute/60),a_wake_48),
+           p_wake_48 = ifelse(pa_bin == 1,24 + (12+wake_hour+wake_minute/60),NA_integer_),
+           p_wake_48 = ifelse(pp_bin == 1,24 + (12+wake_hour+wake_minute/60),p_wake_48),
+           p_wake_48 = p_wake_48 - 12*(wake_hour==12)) %>%
+    select(sleep_time,a_wake_48,p_wake_48,a_sleep_48,p_sleep_48)
+  
+  return(return_sleep)
+}
+
+
+daily_align_sni_alters <- function(filtered_dailylog, new_baseline, other_sni_label = "Someone else not listed here",
+                                 none_sni_label = "I have not interacted with anyone", social_type){
+  if(social_type == "core"){
+    new_daily <- select(filtered_dailylog, pid, sni_social = Q4_0_soccore)
+  } else if(social_type == "alcdaily"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_2_b_alcohol_who)
+  } else if(social_type == "marijuana"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_3_b_marijuana_who)
+  } else if(social_type == "syntheticmj"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_6_b_synthmj_who)
+  } else if(social_type == "meth"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_4_b_meth_who)
+  } else if(social_type == "rxmisuse"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_8_b_prescription_who)
+  } else if(social_type == "mdma"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_5_b_mdma_who)
+  } else if(social_type == "hallucinogen"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_7_b_halluc_who)
+  } else if(social_type == "heroin"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_9_b_heroin_who)
+  } else if(social_type == "cocaine"){
+    new_daily <- rename(filtered_dailylog, sni_social = Q4_10_c_coke_who)
+  }
+  
+  sni_ids <- new_baseline %>%
+    select(pid,starts_with("sni_alter_ids_")) %>%
+    filter(!is.na(sni_alter_ids_1)) %>%
+    mutate(sni_alter_ids_6 = other_sni_label) %>%
+    mutate(sni_alter_ids_0 = none_sni_label) %>%
+    mutate_at(vars(starts_with("sni_alter_ids_")),funs(simplify_sni_id(.))) %>%
+    mutate_at(vars(starts_with("sni_alter_ids_")),funs(paste0("|",.,"|"))) 
+  
+  full_ids <- unique(new_daily$pid)
+  
+  not_in_sni <- setdiff(full_ids, sni_ids$pid)
+  
+  sni_ids <- sni_ids %>%
+    add_row(pid = not_in_sni)
+  
+  sni_social_daily <- new_daily %>%
+    select(pid,sni_social) %>%
+    mutate(sni_social = tolower(sni_social)) %>%
+    mutate(sni_social = str_replace_all(sni_social,"\\.","")) %>%
+    mutate(sni_social = ifelse(sni_social == "question is not displayed",NA_character_,sni_social)) %>%
+    mutate(sni_social = str_replace_all(sni_social," ","")) %>%
+    mutate(sni_social = paste0("|",sni_social,"|")) %>%
+    mutate(sni_social = str_replace_all(sni_social,",","")) %>%
+    mutate(sni_social = str_replace_all(sni_social,"(?<=ididnot).*?(?=\\|)","")) %>%
+    mutate(sni_social = ifelse(sni_social == "|NA|",NA_character_,sni_social)) %>%
+    mutate(sni_social_a1 = 0,
+           sni_social_a2 = 0,
+           sni_social_a3 = 0,
+           sni_social_a4 = 0,
+           sni_social_a5 = 0,
+           sni_social_a6 = 0,
+           sni_social_a0 = 0)
+  
+  sni_test_df <- as_tibble(str_split(sni_social_daily$sni_social, fixed("|"), simplify = TRUE))
+  sni_expand <- 8 - ncol(sni_test_df)
+  sni_ogncol <- ncol(sni_test_df)
+  if(sni_expand > 0){
+    for(i in 1:sni_expand){
+      sni_colname = paste0("V",i+sni_ogncol)
+      sni_test_df <- mutate_(sni_test_df, .dots= setNames(list(NA_character_), sni_colname))
+      }
+  }
+  sni_test_array <- sni_test_df %>%
+    mutate_all(funs(ifelse(is.na(.),"",.))) %>%
+    mutate(sni_test = 
+             (V1 != "") + 
+             (V2 != "") + 
+             (V3 != "") + 
+             (V4 != "") + 
+             (V5 != "") + 
+             (V6 != "") + 
+             (V7 != "") + 
+             (V8 != ""))
+  
+  sni_social_daily <- sni_social_daily %>%
+    add_column("sni_test" = sni_test_array$sni_test)
+  
+  core_count <- detectCores() - 1L
+  registerDoParallel(cores = core_count)
+  
+  new_social_daily <- foreach(i=1:nrow(sni_ids), .combine = rbind) %dopar% {
+    sni_social_daily %>%
+      filter(grepl(sni_ids[i,"pid"],pid)) %>%
+      mutate(sni_social_a1 = ifelse(grepl(sni_ids[i,"sni_alter_ids_1"],sni_social, fixed = TRUE),1,sni_social_a1)) %>%
+      mutate(sni_social_a2 = ifelse(grepl(sni_ids[i,"sni_alter_ids_2"],sni_social, fixed = TRUE),1,sni_social_a2)) %>%
+      mutate(sni_social_a3 = ifelse(grepl(sni_ids[i,"sni_alter_ids_3"],sni_social, fixed = TRUE),1,sni_social_a3)) %>%
+      mutate(sni_social_a4 = ifelse(grepl(sni_ids[i,"sni_alter_ids_4"],sni_social, fixed = TRUE),1,sni_social_a4)) %>%
+      mutate(sni_social_a5 = ifelse(grepl(sni_ids[i,"sni_alter_ids_5"],sni_social, fixed = TRUE),1,sni_social_a5)) %>%
+      mutate(sni_social_a6 = ifelse(grepl(sni_ids[i,"sni_alter_ids_6"],sni_social, fixed = TRUE),1,sni_social_a6)) %>%
+      mutate(sni_social_a0 = ifelse(grepl(sni_ids[i,"sni_alter_ids_0"],sni_social, fixed = TRUE),1,sni_social_a0))
+  }
+  
+  registerDoSEQ()
+  
+  prereturn_sociallog <- new_social_daily %>%
+    mutate_at(vars(starts_with("sni_social_a")),funs(ifelse(is.na(sni_social),NA,.))) %>%
+    #select(starts_with("sni_social_a"), sni_test, sni_social) %>%
+    mutate(sni_new_test = sni_social_a0 + sni_social_a1 + sni_social_a2 + sni_social_a3 + 
+             sni_social_a4 + sni_social_a5 + sni_social_a6) %>%
+    mutate(sni_check = sni_test == sni_new_test)
+  
+  return_sociallog <- prereturn_sociallog %>%
+    select(-sni_new_test,-sni_test,-pid,-sni_social) %>%
+    select_all(.funs = funs(paste0(social_type,"_",.)))
+  
+  return(return_sociallog)
+}
+
+multiple_sex_partners <- function(filtered_dailylog){
+  return_dl <- filtered_dailylog %>%
+    select(starts_with("R",ignore.case = FALSE)) %>%
+    rename_at(vars(starts_with("R",ignore.case = FALSE)), funs(paste0(substring(.,4),"_p",substring(.,2,2)))) %>%
+    rename_at(vars(starts_with("Q5_sex_a_id_")), funs(paste0("sex_partner_id_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_b_parttype_")), funs(paste0("sex_partner_type_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_b2_partdur_")), funs(paste0("sex_partner_duration_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_c_identity_")), funs(paste0("sex_partner_gender_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_d_condom_")), funs(paste0("sex_partner_condomuse_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_d1_hiv_")), funs(paste0("sex_partner_hiv_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_d1_hiv1_")), funs(paste0("sex_partner_hiv2_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_e_substance_")), funs(paste0("sex_partner_druguse_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_f_where_")), funs(paste0("sex_partner_where_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_f_where1_")), funs(paste0("sex_partner_where2_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_g_where_other_")), funs(paste0("sex_partner_where_other_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_g_where_other1_")), funs(paste0("sex_partner_where_other2_p",substring(.,nchar(.),nchar(.))))) %>%
+    mutate(sex_partner_where_p1 = ifelse(is.na(sex_partner_where_p1),sex_partner_where2_p1,sex_partner_where_p1),
+           sex_partner_where_p2 = ifelse(is.na(sex_partner_where_p2),sex_partner_where2_p2,sex_partner_where_p2),
+           sex_partner_where_p3 = ifelse(is.na(sex_partner_where_p3),sex_partner_where2_p3,sex_partner_where_p3),
+           sex_partner_where_p4 = ifelse(is.na(sex_partner_where_p4),sex_partner_where2_p4,sex_partner_where_p4)) %>%
+    mutate(sex_partner_where_other_p1 = ifelse(is.na(sex_partner_where_other_p1),sex_partner_where_other2_p1,sex_partner_where_other_p1),
+           sex_partner_where_other_p2 = ifelse(is.na(sex_partner_where_other_p2),sex_partner_where_other2_p2,sex_partner_where_other_p2),
+           sex_partner_where_other_p3 = ifelse(is.na(sex_partner_where_other_p3),sex_partner_where_other2_p3,sex_partner_where_other_p3),
+           sex_partner_where_other_p4 = ifelse(is.na(sex_partner_where_other_p4),sex_partner_where_other2_p4,sex_partner_where_other_p4)) %>%
+    mutate(sex_partner_where_p1 = ifelse(is.na(sex_partner_where_p1),sex_partner_where2_p1,sex_partner_where_p1),
+           sex_partner_where_p2 = ifelse(is.na(sex_partner_where_p2),sex_partner_where2_p2,sex_partner_where_p2),
+           sex_partner_where_p3 = ifelse(is.na(sex_partner_where_p3),sex_partner_where2_p3,sex_partner_where_p3),
+           sex_partner_where_p4 = ifelse(is.na(sex_partner_where_p4),sex_partner_where2_p4,sex_partner_where_p4)) %>%
+    select(-starts_with("sex_partner_where2"),-starts_with("sex_partner_where_other2"),-starts_with("sex_partner_hiv2"))
+  return(return_dl)
+}
+
 social_daily <- function(filtered_dailylog, sni_stata_filename, social_type){
   sni_list <-  read_sni(sni_stata_filename)
   
@@ -154,7 +363,9 @@ drugs_type_daily <- function(filtered_dailylog){
   return_data <- prebind_data(filtered_data, "drugs_type", new_names, new_labels) %>%
     mutate(drugs_type_other = ifelse(drugs_type_other2 == 1,
                                      1,drugs_type_other)) %>%
-    select(-drugs_type_other2)
+    select(-drugs_type_other2) %>%
+    rename_all(funs(paste0("daily_",.)))
+    
 
   return(return_data)
 }

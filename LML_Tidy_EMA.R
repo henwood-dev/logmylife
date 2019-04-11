@@ -10,6 +10,105 @@ library(tidyverse)
 
 select <- dplyr::select
 
+
+ema_align_sni_alters <- function(filtered_ema, new_baseline, other_sni_label = "Someone else not listed here",
+                                 none_sni_label = "I have not interacted with anyone", social_type){
+  if(social_type == "who"){
+    new_ema <- rename(filtered_ema, sni_social = Q1_social)
+  } else if(social_type == "alcema"){
+    new_ema <- rename(filtered_ema, sni_social = Q12_c_alcohol_who)
+  } else if(social_type == "drugs"){
+    new_ema <- rename(filtered_ema, sni_social = Q13_c_drugs_who)
+  } else if(social_type == "tempted"){
+    new_ema <- rename(filtered_ema, sni_social = Q14_b_tempted_who)
+  }
+  
+  sni_ids <- new_baseline %>%
+    select(pid,starts_with("sni_alter_ids_")) %>%
+    filter(!is.na(sni_alter_ids_1)) %>%
+    mutate(sni_alter_ids_6 = other_sni_label) %>%
+    mutate(sni_alter_ids_0 = none_sni_label) %>%
+    mutate_at(vars(starts_with("sni_alter_ids_")),funs(simplify_sni_id(.))) %>%
+    mutate_at(vars(starts_with("sni_alter_ids_")),funs(paste0("|",.,"|"))) 
+  
+  full_ids <- unique(new_ema$pid)
+  
+  not_in_sni <- setdiff(full_ids, sni_ids$pid)
+  
+  sni_ids <- sni_ids %>%
+    add_row(pid = not_in_sni)
+  
+  sni_social_ema <- new_ema %>%
+    select(pid,sni_social) %>%
+    mutate(sni_social = tolower(sni_social)) %>%
+    mutate(sni_social = str_replace_all(sni_social,"\\.","")) %>%
+    mutate(sni_social = ifelse(sni_social == "question is not displayed",NA_character_,sni_social)) %>%
+    mutate(sni_social = str_replace_all(sni_social," ","")) %>%
+    mutate(sni_social = paste0("|",sni_social,"|")) %>%
+    mutate(sni_social = str_replace_all(sni_social,",","")) %>%
+    mutate(sni_social = ifelse(sni_social == "|NA|",NA_character_,sni_social)) %>%
+    mutate(sni_social_a1 = 0,
+           sni_social_a2 = 0,
+           sni_social_a3 = 0,
+           sni_social_a4 = 0,
+           sni_social_a5 = 0,
+           sni_social_a6 = 0,
+           sni_social_a0 = 0) 
+  
+  
+  sni_test_df <- as_tibble(str_split(sni_social_ema$sni_social, fixed("|"), simplify = TRUE))
+  sni_expand <- 8 - ncol(sni_test_df)
+  sni_ogncol <- ncol(sni_test_df)
+  if(sni_expand > 0){
+    for(i in 1:sni_expand){
+      sni_colname = paste0("V",i+sni_ogncol)
+      sni_test_df <- mutate_(sni_test_df, .dots= setNames(list(NA_character_), sni_colname))
+    }
+  }
+  sni_test_array <- sni_test_df %>%
+    mutate_all(funs(ifelse(is.na(.),"",.))) %>%
+    mutate(sni_test = 
+             (V1 != "") + 
+             (V2 != "") + 
+             (V3 != "") + 
+             (V4 != "") + 
+             (V5 != "") + 
+             (V6 != "") + 
+             (V7 != "") + 
+             (V8 != ""))
+  
+  sni_social_ema <- sni_social_ema %>%
+    add_column("sni_test" = sni_test_array$sni_test)
+  
+  core_count <- detectCores() - 1L
+  registerDoParallel(cores = core_count)
+  
+  new_social_ema <- foreach(i=1:nrow(sni_ids), .combine = rbind) %dopar% {
+    sni_social_ema %>%
+      filter(grepl(sni_ids[i,"pid"],pid)) %>%
+      mutate(sni_social_a1 = ifelse(grepl(sni_ids[i,"sni_alter_ids_1"],sni_social, fixed = TRUE),1,sni_social_a1)) %>%
+      mutate(sni_social_a2 = ifelse(grepl(sni_ids[i,"sni_alter_ids_2"],sni_social, fixed = TRUE),1,sni_social_a2)) %>%
+      mutate(sni_social_a3 = ifelse(grepl(sni_ids[i,"sni_alter_ids_3"],sni_social, fixed = TRUE),1,sni_social_a3)) %>%
+      mutate(sni_social_a4 = ifelse(grepl(sni_ids[i,"sni_alter_ids_4"],sni_social, fixed = TRUE),1,sni_social_a4)) %>%
+      mutate(sni_social_a5 = ifelse(grepl(sni_ids[i,"sni_alter_ids_5"],sni_social, fixed = TRUE),1,sni_social_a5)) %>%
+      mutate(sni_social_a6 = ifelse(grepl(sni_ids[i,"sni_alter_ids_6"],sni_social, fixed = TRUE),1,sni_social_a6)) %>%
+      mutate(sni_social_a0 = ifelse(grepl(sni_ids[i,"sni_alter_ids_0"],sni_social, fixed = TRUE),1,sni_social_a0))
+  }
+  
+  prereturn_sociallog <- new_social_ema %>%
+    mutate_at(vars(starts_with("sni_social_a")),funs(ifelse(is.na(sni_social),NA,.))) %>%
+    #select(starts_with("sni_social_a"), sni_test, sni_social) %>%
+    mutate(sni_new_test = sni_social_a0 + sni_social_a1 + sni_social_a2 + sni_social_a3 + 
+             sni_social_a4 + sni_social_a5 + sni_social_a6) %>%
+    mutate(sni_check = sni_test == sni_new_test)
+  
+  return_sociallog <- prereturn_sociallog %>%
+    select(-sni_new_test,-sni_test,-pid,-sni_social) %>%
+    select_all(.funs = funs(paste0(social_type,"_",.))) 
+  
+  return(return_sociallog)
+}
+
 social_ema <- function(filtered_ema){
   filtered_data <- rename(filtered_ema,social_other = Q1_a_socialother)
   new_names <-c(
@@ -160,7 +259,8 @@ drugs_type_ema <- function(filtered_ema){
     drugs_type_rx = "Prescription drugs, not as prescribed (Rx cough syrup, Oxycontin, Xanax, etc.),",
     drugs_type_spice = "Synthetic marijuana (K2, Spice, etc.)"
     )
-  return_data <- prebind_data(filtered_data, "drugs_type", new_names, new_labels)
+  return_data <- prebind_data(filtered_data, "drugs_type", new_names, new_labels) %>%
+    rename_all(funs(paste0("ema_",.)))
     
   return(return_data)
 }

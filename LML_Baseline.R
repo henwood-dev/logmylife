@@ -65,7 +65,8 @@ rename_by_substract <- function(varname, orig_num, new_num){
  return(update_var)
 }
 
-demographics <- function() {
+demographics <- function(main_filepath, v1_filepath, v2_filepath, v30_filepath, v31_filepath,
+                         v4_filepath, v5_filepath, v6_filepath, v7_filepath) {
   v1_data <- v1_fix_errors(main_filepath,v1_filepath,TRUE)
   v2_data <- v2_fix_errors(main_filepath,v2_filepath,TRUE)
   v3_data <- v3_fix_errors(main_filepath,v30_filepath,v31_filepath,TRUE)
@@ -249,10 +250,10 @@ clean_followup <- function(v2q_data){
                    starts_with("ei_agree_"))
               , funs(factor_keep_rename(., level_vector = c(
       "Strongly disagree","Disagree","Neither disagree nor agree","Agree","Strongly agree")))) %>%
-    mutate_at(vars(starts_with("casey_")), funs(factor_keep_rename(., level_vector = c("Mostly no",
+    mutate_at(vars(starts_with("casey_")), funs(factor_keep_rename(., level_vector = c("No","Mostly no",
                                                                                                 "Somewhat",
-                                                                                                "Yes",
-                                                                                                "Mostly yes")))) %>%
+                                                                                                "Mostly yes",
+                                                                                                "Yes")))) %>%
     mutate_at(vars(hes_uh_nsc_9,hes_nsc_9), funs(factor_keep_rename(., level_vector = c(
       "No one","A few","About half","Most","Everybody")))) %>%
     mutate_at(vars(starts_with("hes_uh_pq_")), funs(factor_keep_rename(., level_vector = c(
@@ -658,10 +659,9 @@ clean_baseline <- function(baseline_data){
                                                                                        "Rarely (once or twice in the past 30 days)",
                                                                                        "Sometimes (three to ten times in the past 30 days)",
                                                                                        "Often (more than ten times in the past 30 days)")))) %>%
-    mutate_at(vars(starts_with("casey_")), funs(factor_keep_rename(., level_vector = c("Mostly no",
+    mutate_at(vars(starts_with("casey_")), funs(factor_keep_rename(., level_vector = c("No","Mostly no",
                                                                                        "Somewhat",
-                                                                                       "Yes",
-                                                                                       "Mostly yes")))) %>%
+                                                                                       "Mostly yes","Yes")))) %>%
     mutate_at(vars(employ_paidjobs), funs(factor_keep_rename(., level_vector = c(
       "0","1","2","3","4","5","6 or more")))) %>%
     mutate_at(vars(employ_ttlpaidhrs), funs(factor_keep_rename(., level_vector = c(
@@ -768,6 +768,7 @@ clean_baseline <- function(baseline_data){
     bind_cols(rxmisuse_type(.)) %>%
     bind_cols(roa_marijuana(.)) %>%
     bind_cols(techuse_techowned(.)) %>%
+    bind_cols(sni_baseline(.)) %>%
     select(-gender,-duration_in_seconds,-date,-survey_type,-site_unhoused_77_text,-site_housed_77_text,-consent,
            -dob,-hisp,-site_housed,-site_unhoused,-birace,-starts_with("research_"),-starts_with("hfias_"),
            -prep_whereleard,-prep_social_who,-prep_barriers,-describe_3mopartner,-`3mosex_partgndr`,
@@ -783,6 +784,13 @@ clean_baseline <- function(baseline_data){
   old_names <- c("pdm_30_types_4_text")
   new_names <- c("drugs_rxmisuse_text")
   setnames(filtered_baseline,old_names,new_names)
+  
+  sni_baseline_names <- filtered_baseline %>%
+    select(starts_with("sni_")) %>%
+    select(-starts_with("sni_bl_"),-sni_version,-starts_with("sni_alter_ids_")) %>%
+    names()
+  
+  filtered_baseline <- select(filtered_baseline,-one_of(sni_baseline_names))
  
   old_names<- c("race","race_8_text","inschool","inschool_type","inschool_type_4_text","educ","sex","gender_6_text",
                 "sexori","sexori_6_text","sexattr_formales",
@@ -1008,7 +1016,7 @@ clean_baseline <- function(baseline_data){
   cat("List of variable names that are currently in progress", incomplete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/incomplete_varnames.txt", sep="\n")
   
   complete_name_out <- capture.output(names(select(filtered_baseline,pid,starts_with("demo"),starts_with("baseline"),starts_with("unhoused"),
-                                                     starts_with("scale"),starts_with("history"),starts_with("survey"),-starts_with("sni"),
+                                                     starts_with("scale"),starts_with("history"),starts_with("survey"),starts_with("sni"),
                                                    starts_with("sleep"),starts_with("healthcare"),starts_with("tobacco_"),starts_with("drugs_"),
                                                    starts_with("techuse_"))))
   complete_name_out
@@ -1016,7 +1024,7 @@ clean_baseline <- function(baseline_data){
   
   
   completedsofar <- select(filtered_baseline,pid,starts_with("demo"),starts_with("baseline"),starts_with("unhoused"),
-                           starts_with("scale"),starts_with("history"),starts_with("survey"),-starts_with("sni"),
+                           starts_with("scale"),starts_with("history"),starts_with("survey"),starts_with("sni"),
                            starts_with("sleep"),starts_with("healthcare"),starts_with("tobacco_"),starts_with("drugs_"),
                            starts_with("techuse_"))
   write_dta(completedsofar,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline.dta")

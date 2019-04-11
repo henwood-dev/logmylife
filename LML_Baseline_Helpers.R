@@ -20,6 +20,101 @@ select <- dplyr::select
 # Imports
 source("LML_Tidy_Helpers.R", encoding = "UTF-8")
 
+simplify_baseline_sni_id <- function(sni_id){
+  original_label_name <- attributes(sni_id)$label
+  gsubbed_sni_id <- tolower(sni_id)
+  repeat_gsub_blank <- c(" ", "\\.", "'", "\\$", "\\{","\\:","\\/","efield","\\}")
+  for(i in repeat_gsub_blank){
+    gsubbed_sni_id <- gsub(i,"",gsubbed_sni_id)
+  }
+  gsubbed_sni_id <- gsub("x29","person1",gsubbed_sni_id)
+  gsubbed_sni_id <- gsub("x30","person2",gsubbed_sni_id)
+  gsubbed_sni_id <- gsub("x31","person3",gsubbed_sni_id)
+  gsubbed_sni_id <- gsub("x32","person4",gsubbed_sni_id)
+  gsubbed_sni_id <- gsub("x33","person5",gsubbed_sni_id)
+  attr(gsubbed_sni_id,"label") <- original_label_name
+  return(gsubbed_sni_id)
+}
+
+
+baseline_align_sni_alters <- function(sni_column, new_name){
+  social_daily <- as.tibble(sni_column)
+  names(social_daily) <- c("sni_social")
+
+  sni_ids <- c(",person1,",",person2,",",person3,",",person4,",",person5,",",noneoftheabove,")
+  
+  sni_social_daily <- social_daily %>%
+    mutate(sni_social = paste0(",",sni_social,",")) %>%
+    mutate(sni_social_a1 = 0,
+           sni_social_a2 = 0,
+           sni_social_a3 = 0,
+           sni_social_a4 = 0,
+           sni_social_a5 = 0,
+           sni_social_a0 = 0)
+  
+  new_social_daily <- sni_social_daily %>%
+    mutate(sni_social_a1 = ifelse(grepl(sni_ids[1],sni_social, fixed = TRUE),1,sni_social_a1)) %>%
+    mutate(sni_social_a2 = ifelse(grepl(sni_ids[2],sni_social, fixed = TRUE),1,sni_social_a2)) %>%
+    mutate(sni_social_a3 = ifelse(grepl(sni_ids[3],sni_social, fixed = TRUE),1,sni_social_a3)) %>%
+    mutate(sni_social_a4 = ifelse(grepl(sni_ids[4],sni_social, fixed = TRUE),1,sni_social_a4)) %>%
+    mutate(sni_social_a5 = ifelse(grepl(sni_ids[5],sni_social, fixed = TRUE),1,sni_social_a5)) %>%
+    mutate(sni_social_a0 = ifelse(grepl(sni_ids[6],sni_social, fixed = TRUE),1,sni_social_a0))
+  
+  prereturn_sociallog <- new_social_daily %>%
+    mutate_at(vars(starts_with("sni_social_a")),funs(ifelse(is.na(sni_social),NA,.)))
+
+  bl_sni_rename <- function(string_varname){
+    no_sni <- substr(string_varname,5)
+  }
+  
+  return_sociallog <- prereturn_sociallog %>%
+    select(-sni_social) %>%
+    select_all(.funs = funs(paste0("sni_bl_",new_name,"_",str_sub(.,12))))
+  
+  return(return_sociallog)
+}
+
+sni_baseline <- function(filtered_baseline){
+  sni_baseline_only <- filtered_baseline %>%
+    select(starts_with("sni_")) %>%
+    select(-sni_version,-starts_with("sni_alter_ids_"))
+  
+  sni_bl_names <- function(sni_baseline_only, endswithvar, newendswithvar){
+    number_names <- names(select(sni_baseline_only,ends_with(endswithvar)))
+    number_names_new <- gsub("sni_","sni_bl_",gsub(endswithvar,newendswithvar,number_names))
+    setnames(sni_baseline_only,number_names,number_names_new)
+  }
+  
+  sni_bl_names(sni_baseline_only, "_1","_a1")
+  sni_bl_names(sni_baseline_only, "_2","_a2")
+  sni_bl_names(sni_baseline_only, "_3","_a3")
+  sni_bl_names(sni_baseline_only, "_4","_a4")
+  sni_bl_names(sni_baseline_only, "_5","_a5")
+  
+  sni_bl_names(sni_baseline_only, "oth1","_a1")
+  sni_bl_names(sni_baseline_only, "oth2","_a2")
+  sni_bl_names(sni_baseline_only, "oth3","_a3")
+  sni_bl_names(sni_baseline_only, "oth4","_a4")
+  sni_bl_names(sni_baseline_only, "oth5","_a5")
+ 
+  
+  remaining_names <- names(select(sni_baseline_only,-ends_with("_a1"),-ends_with("_a2"),-ends_with("_a3")
+                      ,-ends_with("_a4"),-ends_with("_a5")))
+  
+  new_sni_baseline <- sni_baseline_only %>%
+    mutate_at(vars(one_of(remaining_names)),funs(simplify_baseline_sni_id(.)))
+  
+  for(i in remaining_names){
+    new_name <- str_sub(i,5)
+    print(paste0(i," going to ",new_name))
+    new_sni_baseline <- new_sni_baseline %>%
+      bind_cols(baseline_align_sni_alters(select(new_sni_baseline,one_of(i)),new_name)) %>%
+      select(-one_of(i))
+  }
+  
+  return(new_sni_baseline)  
+}
+
 hiv_posmeds_whynot <- function(filtered_baseline){
   filtered_data <- rename(filtered_baseline,survey_hiv_posmeds_whynot = `hivp_meds_whynot`)
   variable_prefix <- "survey_hiv_posmeds_whynot"
