@@ -16,6 +16,17 @@ pipe_print <- function(data_to_pass, string_to_print){
   return(data_to_pass)
 }
 
+stata_varcheck_setnames <- function(dataset){
+  longvars <- c("longvars")
+  for(i in 1:ncol(dataset)){
+    if(str_length(names(dataset[i])) > 32) {
+      longvars <- append(longvars,names(dataset[i]))
+    }
+  }
+  longvars[1] <- NA
+  return(longvars)
+}
+
 
 simplify_sni_id <- function(sni_id){
   remove_spaces <- gsub(" ","",sni_id)

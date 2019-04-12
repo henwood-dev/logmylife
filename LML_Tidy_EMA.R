@@ -114,8 +114,8 @@ social_ema <- function(filtered_ema){
   new_names <-c(
     `social_other_Case worker or agency staff/volunteer` = "social_other_staff" ,
     `social_other_Family (biological or foster)` = "social_other_family",
-    `social_other_Friends from home / before you were homeless` = "social_other_homefriends",
-    `social_other_Friends or peers from the street or an agency` = "social_other_streetfriends",
+    `social_other_Friends from home / before you were homeless` = "social_other_hmfriends",
+    `social_other_Friends or peers from the street or an agency` = "social_other_stfriends",
     `social_other_Law enforcement (police, security, etc.)` = "social_other_police",
     `social_other_People from work or school` = "social_other_coworker",
     `social_other_Romantic/sexual partner` = "social_other_partner",
@@ -123,8 +123,8 @@ social_ema <- function(filtered_ema){
   new_labels <- c(
     social_other_staff = "Case worker or agency staff/volunteer",
     social_other_family =  "Family (biological or foster)",
-    social_other_homefriends = "Friends from home / before you were homeless",
-    social_other_streetfriends = "Friends or peers from the street or an agency",
+    social_other_hmfriends = "Friends from home / before you were homeless",
+    social_other_stfriends = "Friends or peers from the street or an agency",
     social_other_police = "Law enforcement (police, security, etc.)",
     social_other_coworker = "People from work or school",
     social_other_partner = "Romantic/sexual partner",
@@ -218,8 +218,8 @@ alcohol_who_other_ema <- function(filtered_ema){
   filtered_data <- rename(filtered_ema,alcohol_social_other = Q12_d_alcohol_who_other)
   new_names <- c(
     `alcohol_social_other_Family (biological or foster)` = "alcohol_social_other_family",
-    `alcohol_social_other_Friends from home / before you were homeless` = "alcohol_social_other_homefriends",
-    `alcohol_social_other_Friends or peers from the street or an agency` = "alcohol_social_other_streetfriends",
+    `alcohol_social_other_Friends from home / before you were homeless` = "alcohol_social_other_hmfriends",
+    `alcohol_social_other_Friends or peers from the street or an agency` = "alcohol_social_other_stfriends",
     `alcohol_social_other_People from work or school` = "alcohol_social_other_coworker",
     `alcohol_social_other_Romantic/sexual partner` = "alcohol_social_other_partner",
     `alcohol_social_other_Someone I don't know well/random person` = "alcohol_social_other_stranger"
@@ -227,8 +227,8 @@ alcohol_who_other_ema <- function(filtered_ema){
 
   new_labels <- c(
     alcohol_social_other_family = "Family (biological or foster),",
-    alcohol_social_other_homefriends = "Friends from home / before you were homeless,",
-    alcohol_social_other_streetfriends = "Friends or peers from the street or an agency,",
+    alcohol_social_other_hmfriends = "Friends from home / before you were homeless,",
+    alcohol_social_other_stfriends = "Friends or peers from the street or an agency,",
     alcohol_social_other_coworker = "People from work or school,",
     alcohol_social_other_partner = "Romantic/sexual partner,",
     alcohol_social_other_stranger = "Someone I don't know well/random person"
@@ -302,16 +302,16 @@ drugs_who_other_ema <- function(filtered_ema){
   filtered_data <- rename(filtered_ema,drugs_social_other = Q13_d_drugs_who_other)
   new_names <- c(
     `drugs_social_other_Family (biological or foster)` = "drugs_social_other_family",
-    `drugs_social_other_Friends from home / before you were homeless` = "drugs_social_other_homefriends",
-    `drugs_social_other_Friends or peers from the street or an agency` = "drugs_social_other_streetfriends",
+    `drugs_social_other_Friends from home / before you were homeless` = "drugs_social_other_hmfriends",
+    `drugs_social_other_Friends or peers from the street or an agency` = "drugs_social_other_stfriends",
     `drugs_social_other_People from work or school` = "drugs_social_other_coworker",
     `drugs_social_other_Romantic/sexual partner` = "drugs_social_other_partner",
     `drugs_social_other_Someone I don't know well/random person` = "drugs_social_other_stranger"
     )
   new_labels <- c(
         drugs_social_other_family = "Family (biological or foster),",
-        drugs_social_other_homefriends = "Friends from home / before you were homeless,",
-        drugs_social_other_streetfriends = "Friends or peers from the street or an agency,",
+        drugs_social_other_hmfriends = "Friends from home / before you were homeless,",
+        drugs_social_other_stfriends = "Friends or peers from the street or an agency,",
         drugs_social_other_coworker = "People from work or school,",
         drugs_social_other_partner = "Romantic/sexual partner,",
         drugs_social_other_stranger = "Someone I don't know well/random person"
@@ -364,16 +364,16 @@ tempted_who_other_ema <- function(filtered_ema){
   filtered_data <- rename(filtered_ema,tempted_social_other = Q14_c_tempted_who_other)
   new_names <- c(
     `tempted_social_other_Family (biological or foster)` = "tempted_social_other_family",
-    `tempted_social_other_Friends from home / before you were homeless` = "tempted_social_other_homefriends",
-    `tempted_social_other_Friends or peers from the street or an agency` = "tempted_social_other_streetfriends",
+    `tempted_social_other_Friends from home / before you were homeless` = "tempted_social_other_hmfriends",
+    `tempted_social_other_Friends or peers from the street or an agency` = "tempted_social_other_stfriends",
     `tempted_social_other_People from work or school` = "tempted_social_other_coworker",
     `tempted_social_other_Romantic/sexual partner` = "tempted_social_other_partner",
     `tempted_social_other_Someone I don't know well/random person` = "tempted_social_other_stranger"
       )
   new_labels <- c(
         tempted_social_other_family = "Family (biological or foster),",
-        tempted_social_other_homefriends = "Friends from home / before you were homeless,",
-        tempted_social_other_streetfriends = "Friends or peers from the street or an agency,",
+        tempted_social_other_hmfriends = "Friends from home / before you were homeless,",
+        tempted_social_other_stfriends = "Friends or peers from the street or an agency,",
         tempted_social_other_coworker = "People from work or school,",
         tempted_social_other_partner = "Romantic/sexual partner,",
         tempted_social_other_stranger = "Someone I don't know well/random person"

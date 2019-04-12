@@ -106,6 +106,7 @@ tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
   new_data <- copy(clean_baseline_data)
   r_tidy_names <- fread(paste0(main_filepath,"/r_tidy.csv")) %>%
     filter(source == bl_or_v2q) %>%
+    filter(!startsWith(varname_r,"sni")) %>%
     filter(varname_r != "" & varname_tidy != "")  %>%
     filter(varname_r != "pid" & varname_tidy != "pid") %>%
     filter(varname_r != "survey_hiv_postx_why" & varname_tidy != "survey_hiv_postx_why") %>%
