@@ -115,7 +115,7 @@ tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
     #filter(varname_r != "survey_prep_who_socialworker" & varname_tidy != "survey_prep_who_socialworker") %>%
     #filter(varname_r != "sni_version" & varname_tidy != "sni_version")
   setnames(new_data,r_tidy_names$varname_r,r_tidy_names$varname_tidy)
-  new_data <- select(new_data,pid,one_of(r_tidy_names$varname_tidy))
+  new_data <- select(new_data,pid,one_of(r_tidy_names$varname_tidy),starts_with("sni_"))
   if(bl_or_v2q == "bl"){
     write_dta(new_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline_tidy.dta")
   } else {

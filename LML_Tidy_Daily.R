@@ -10,7 +10,7 @@ library(tidyverse)
 
 select <- dplyr::select
 
-sleepy_time <- function(filtered_dailylog){
+sleepy_time <- function(filtered_dailylog, lowrange = 2, highrange = 14){
   return_sleep <- filtered_dailylog %>%
     select(daily_prompt_date,daily_prompt_time,wake_hour,sleep_hour,sleep_minute,wake_minute,no_sleep) %>%
     mutate(date_now = daily_prompt_date,
@@ -45,17 +45,17 @@ sleepy_time <- function(filtered_dailylog){
            pa_bin = ifelse(wakepm_sleepam > 0 & wakepm_sleepam < 24,1,0),
            pp_bin = ifelse(wakepm_sleeppm > 0 & wakepm_sleeppm < 24,1,0)) %>%
     mutate(duped = ifelse(og_wake_hour == og_sleep_hour & og_wake_min == og_sleep_min,1,0)) %>%
-    mutate(aa_bin = ifelse(wakeam_sleepam < 2,0,aa_bin),
-           aa_bin = ifelse(wakeam_sleepam > 14,0,aa_bin),
+    mutate(aa_bin = ifelse(wakeam_sleepam < lowrange,0,aa_bin),
+           aa_bin = ifelse(wakeam_sleepam > highrange,0,aa_bin),
            aa_bin = ifelse(wakeam_sleepam < 0,0,aa_bin)) %>%
-    mutate(ap_bin = ifelse(wakeam_sleeppm < 2,0,ap_bin),
-           ap_bin = ifelse(wakeam_sleeppm > 14,0,ap_bin),
+    mutate(ap_bin = ifelse(wakeam_sleeppm < lowrange,0,ap_bin),
+           ap_bin = ifelse(wakeam_sleeppm > highrange,0,ap_bin),
            ap_bin = ifelse(wakeam_sleeppm < 0,0,ap_bin)) %>%
-    mutate(pa_bin = ifelse(wakepm_sleepam < 2,0,pa_bin),
-           pa_bin = ifelse(wakepm_sleepam > 14,0,pa_bin),
+    mutate(pa_bin = ifelse(wakepm_sleepam < lowrange,0,pa_bin),
+           pa_bin = ifelse(wakepm_sleepam > highrange,0,pa_bin),
            pa_bin = ifelse(wakepm_sleepam < 0,0,pa_bin)) %>%
-    mutate(pp_bin = ifelse(wakepm_sleeppm < 2,0,pp_bin),
-           pp_bin = ifelse(wakepm_sleeppm > 14,0,pp_bin),
+    mutate(pp_bin = ifelse(wakepm_sleeppm < lowrange,0,pp_bin),
+           pp_bin = ifelse(wakepm_sleeppm > highrange,0,pp_bin),
            pp_bin = ifelse(wakepm_sleeppm < 0,0,pp_bin)) %>%
     mutate(decision = rowSums(cbind(aa_bin,ap_bin,pa_bin,pp_bin), na.rm = TRUE)) %>%
     mutate(decision = ifelse(ap_bin == 1 & pa_bin == 1, decision - 1, decision),
@@ -88,6 +88,11 @@ sleepy_time <- function(filtered_dailylog){
            p_sleep_48 = ifelse(is.na(a_wake_48) & sleep_missing == 1,NA,p_sleep_48)) %>%
     mutate(sleep_missing = is.na(a_wake_48)+is.na(p_wake_48)+is.na(a_sleep_48)+is.na(p_sleep_48)) %>%
     select(sleep_time,a_wake_48,p_wake_48,a_sleep_48,p_sleep_48,sleep_missing)
+    
+  if(lowrange != 2 & highrange != 14){
+    return_sleep <- return_sleep %>%
+      rename_all(funs(paste0(.,"_",as.character(lowrange),"to",as.character(highrange))))
+  }
   
   return(return_sleep)
 }

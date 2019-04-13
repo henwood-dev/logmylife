@@ -364,7 +364,9 @@ tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname,
     bind_cols(sex_partners_daily(.)) %>%
     bind_cols(sex_where_daily(.)) %>%
     bind_cols(multiple_sex_partners(.)) %>%
-    bind_cols(sleepy_time(.))
+    bind_cols(sleepy_time(.)) %>%
+    bind_cols(sleepy_time(., lowrange = 0, highrange = 2)) %>%
+    bind_cols(sleepy_time(., lowrange = 14, highrange = 24))
   if(!retain_names){
     filtered_dailylog <- filtered_dailylog %>%
       select(-Q3_sleeploc,-Q1_waketime,-Q2_sleeptime,-Q3_b_sleep_quality,
