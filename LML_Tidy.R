@@ -424,6 +424,10 @@ tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname,
       select(-dates_start_app,-dates_end_app)
   }
   
+  filtered_dailylog <- filtered_dailylog %>%
+    filter(pid != "1115")
+  
+  
   return(filtered_dailylog)
 }
 
@@ -531,6 +535,9 @@ tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
       filter(ema_prompt_date >= dates_start_app & ema_prompt_date <= dates_end_app) %>%
       select(-dates_start_app,-dates_end_app)
   }
+  
+  filtered_ema <- filtered_ema %>%
+    filter(pid != "1115")
   
   return(filtered_ema)
 }

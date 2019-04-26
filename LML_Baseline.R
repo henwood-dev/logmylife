@@ -115,12 +115,41 @@ tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
     #filter(varname_r != "survey_prep_who_socialworker" & varname_tidy != "survey_prep_who_socialworker") %>%
     #filter(varname_r != "sni_version" & varname_tidy != "sni_version")
   setnames(new_data,r_tidy_names$varname_r,r_tidy_names$varname_tidy)
-  new_data <- select(new_data,pid,one_of(r_tidy_names$varname_tidy),starts_with("sni_"))
+  if(bl_or_v2q == "v2q"){
+    setnames(new_data,c("v2q_version"),c("surveyversion_v2q"))
+    new_data <- select(new_data,pid,surveyversion_v2q,one_of(r_tidy_names$varname_tidy),starts_with("sni_"))
+  } else {
+    new_data <- select(new_data,pid,one_of(r_tidy_names$varname_tidy),starts_with("sni_")) 
+  }
   if(bl_or_v2q == "bl"){
+    new_data <- new_data %>%
+      filter(pid != "1115") %>%
+      mutate(age_18to25 = ifelse(!is.na(age_demo),ifelse(age_demo < 26,1,0),NA_integer_)) %>%
+      mutate(race_eth_combine = case_when((race_single == "Black or African-American" | race_single == "Black") & hispanic_latinx != "Yes" ~ "Black",
+                                          race_single == "White" & hispanic_latinx != "Yes" ~ "White",
+                                          race_single == "Hisp/Lat and no other race" | (race_single == "I don't know" & hispanic_latinx == "Yes") ~ "Hisp/Lat ONLY",
+                                          race_single ==  "Bi/Multi-racial or Ethnic" | hispanic_latinx == "Yes" & (race_single != "Hisp/Lat and no other race" & race_single != "I don't know") ~ "Bi/Multi-racial or Ethnic",
+                                          race_single == "American Indian or Alaska Native" | race_single == "Asian" | race_single == "Native Hawaiian or other Pacific Islander" | race_single == "South Asian" | (race_single == "I don't know" & hispanic_latinx != "Yes") | race_single == "Other (please specify)" & hispanic_latinx != "Yes" ~ "Another race or ethnicity",
+                                          race_single == "I don't know" & hispanic_latinx == "Unknown" ~ NA_character_,
+                                          TRUE ~ NA_character_)) %>%
+      mutate(gender_id_transother_selected = case_when(gender_id_transmale_selected == 1 | gender_id_transfemale_selected == 1 | gender_id_gqnc_selected == 1 | gender_id_other_selected == 1 ~ 1,
+                                               gender_id_transmale_selected == 0 & gender_id_transfemale_selected == 0 & gender_id_gqnc_selected == 0 & gender_id_other_selected == 0 ~ 0,
+                                               TRUE ~ NA_real_)) %>%
+      mutate(education_highest_collapse = case_when(education_highest_grade_complete == "9th to 12th grade (no degree)"  | education_highest_grade_complete == "No formal education" | education_highest_grade_complete == "Kindergarten to 5th grade" ~ "Less than high school",
+                                                    education_highest_grade_complete == "GED" | education_highest_grade_complete == "High school diploma" ~ "High school or GED",
+                                                    education_highest_grade_complete == "Some vocational/trade school (no degree)" | education_highest_grade_complete == "Associates (AA) degree" |
+                                                      education_highest_grade_complete == "Some graduate school (no degree)" | education_highest_grade_complete == "Bachelor's (BA/BS) degree" | 
+                                                      education_highest_grade_complete == "Vocational/trade school degree" ~ "Post high school education",
+                                                    TRUE ~ NA_character_),
+             education_highest_collapse = factor_keep_rename(education_highest_collapse, level_vector = c("Less than high school","High school or GED","Post high school education")))
+    
     write_dta(new_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline_tidy.dta")
   } else {
+    new_data <- new_data %>%
+      filter(pid != "1115")
     write_dta(new_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup_tidy.dta")
   }
+  
   return(new_data)
 }
 
@@ -174,7 +203,8 @@ clean_enrollment <- function(enrollment_dirname, enrollment_filename = "enrollme
     select(pid, status, housing_status, recruit_agency, recruit_site,
            housing_agency, housing_building_name,
            living_model, living_situation_scattered,living_situation_unhoused,unhoused_program,
-           starts_with("dates_"),starts_with("enroll_"),starts_with("phone_"))
+           starts_with("dates_"),starts_with("enroll_"),starts_with("phone_")) %>%
+    filter(pid != "1115")
     
   write_dta(fixed_enroll,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/enrollment.dta")
 }
@@ -438,7 +468,7 @@ clean_followup <- function(v2q_data){
                            starts_with("cls_"),starts_with("ders_"))
   write_dta(completedsofar,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup.dta")
   
-  return(completedsofar)
+  return(filtered_followup)
 }
 
 clean_baseline <- function(baseline_data){
@@ -1052,10 +1082,12 @@ followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v
            hes_date = ifelse(exit_pid == "1004","6/19/2017",hes_date),
            hes_date = ifelse(exit_pid == "1005","6/19/2017",hes_date)) %>%
     rename(v2q_pid = exit_pid,
-           v2q_date = hes_date)
+           v2q_date = hes_date) %>%
+    mutate(v2q_version = "1")
   #v2_raw <- return_raw_baseline(main_filepath, v2_v2q_filepath)
   v3_raw <- return_raw_baseline(main_filepath, v3_v2q_filepath) %>%
     filter(responseid != "R_3eNrv9wgEEw1DfH" & responseid != "R_2X66FVl0NeOhixn") %>%
+    mutate(v2q_version = "3") %>%
     bind_rows(v1_raw)
   v4_raw <- return_raw_baseline(main_filepath, v4_v2q_filepath) %>%
     filter(v2q_pid != "1092" & responseid != "R_8ffh1QKZh1MjMHL") %>%
@@ -1069,6 +1101,7 @@ followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v
   v4_fix <- v4_raw %>%
     filter(v2q_pid != "1087") %>%
     bind_rows(v4_fix_1087) %>%
+    mutate(v2q_version = "4") %>%
     bind_rows(v3_raw)
   
   v5_raw <- return_raw_baseline(main_filepath, v5_v2q_filepath) %>%
@@ -1078,6 +1111,7 @@ followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v
            v2q_pid = ifelse(responseid == "R_3PmLgNuV3kHZMVt","2011",v2q_pid),
            v2q_pid = ifelse(responseid == "R_31Qt8FUpZ8f2Y2D","2019",v2q_pid)) %>%
     filter(v2q_pid != "101" & responseid != "R_3e3KHPHwy4TsSAa") %>%
+    mutate(v2q_version = "5") %>%
     bind_rows(v4_fix) %>%
     rename(ei_extent_ei_interfe = ei_interfere,
            ei_extent_ei_stress = ei_stress,
@@ -1099,12 +1133,17 @@ followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v
   v6_fix <- v6_raw %>%
     filter(v2q_pid != "1132") %>%
     bind_rows(v6_fix_1132) %>%
+    mutate(v2q_version = "6") %>%
     bind_rows(v5_raw)
   
-  v7_bind_labels <- get_label(return_raw_baseline(main_filepath, v7_v2q_filepath))
+  v7_preraw <- return_raw_baseline(main_filepath, v7_v2q_filepath) %>%
+    mutate(v2q_version = "7")
+  
+  v7_bind_labels <- get_label(v7_preraw)
   
   v7_raw <- return_raw_baseline(main_filepath, v7_v2q_filepath) %>%
     mutate(v2q_pid = ifelse(v2q_pid == "2038","1138",v2q_pid)) %>%
+    mutate(v2q_version = "7") %>%
     bind_rows(v6_fix)
   
   followup_data <- v7_raw %>%

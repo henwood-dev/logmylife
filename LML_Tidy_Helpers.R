@@ -36,6 +36,26 @@ simplify_sni_id <- function(sni_id){
   return(make_lower)
 }
 
+write_master_logs <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE,
+                              master_filter = "master"){
+  masterlog_files <- read_file_list(data_dirname,wockets_dirname,"logs","lml_com$",paste0(master_filter,".log.csv$"))
+  pre_master_log <- rbindlist(lapply(masterlog_files,skip_fread, data_dirname = data_dirname, suffix_dirname = wockets_dirname), fill = TRUE)
+  
+  if(!skip_manual){
+    manual_masterlog_files <- read_file_list(data_dirname,manual_dirname,"logs","lml_com$","master.log.csv$")
+    manual_master_log <- rbindlist(lapply(manual_masterlog_files,skip_fread, data_dirname = data_dirname, suffix_dirname = manual_dirname), fill = TRUE)
+    # Switching to Data.Table Paradigm for Fast Master Processing
+    merge_manual <- anti_join(manual_master_log,pre_master_log, by = c("file_id","V1"))
+    raw_master_log <- bind_rows(pre_master_log,merge_manual)
+  } else {
+    raw_master_log <- as.data.table(pre_master_log)
+  }
+  raw_master_log[, V2:= NULL]
+
+  write_csv(raw_master_log,paste0(data_dirname,"/",master_filter,"_logs.csv"))
+  return(raw_master_log)
+}
+
 write_gps_logs <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE){
   gps_files <- read_file_list(data_dirname,wockets_dirname,"data/","lml_com$","GPS.csv$")
   pre_raw_gps_log <- rbindlist(lapply(gps_files,skip_fread, data_dirname = data_dirname, suffix_dirname = wockets_dirname), fill = TRUE)
@@ -196,10 +216,10 @@ read_gps <- function(data_dirname,wockets_dirname,manual_dirname, skip_manual = 
   return(raw_gps_log)
 }
 
-skip_fread <- function(file, data_dirname, suffix_dirname){
+skip_fread <- function(file, data_dirname, suffix_dirname, supply_header = FALSE){
   if(file.size(file) > 0){
     try({
-      return_csv <- fread(file, colClasses = 'character', encoding = "UTF-8")
+      return_csv <- fread(file, colClasses = 'character', encoding = "UTF-8", header = supply_header)
       idstringlength <- str_length(paste(data_dirname,suffix_dirname,"", sep = "/"))
       id <- str_sub(file,idstringlength+4,idstringlength+7)
       return_csv[, file_id := id]
