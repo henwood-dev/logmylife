@@ -11,6 +11,35 @@ library(bit64)
 
 select <- dplyr::select
 
+
+write_prompt_responses <- function(data_dirname, wockets_dirname, manual_dirname = NULL, skip_manual = TRUE){
+  #ids <- read_delim(paste(data_dirname,"file_ids.txt",sep = "/"), delim = ",", col_names = "id")
+  prompt_response_files <- read_file_list(data_dirname,wockets_dirname,"surveys","lml_com$","Prompts.csv$", hour_filter = FALSE)
+  raw_prompts <- lapply(prompt_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = wockets_dirname)
+  
+  if(!skip_manual){
+    manual_prompt_response_files <- read_file_list(data_dirname,manual_dirname,"surveys","lml_com$","Prompts.csv$", hour_filter = FALSE)
+    manual_raw_prompts <- lapply(manual_prompt_response_files,read_ema, data_dirname = data_dirname, suffix_dirname = manual_dirname)
+  }
+  
+  prompt_responses <- raw_prompts[[1]]
+  for(i in 2:length(raw_prompts)){
+    prompt_responses <- bind_rows(prompt_responses,raw_prompts[[i]])
+  }
+  if(!skip_manual){
+    manual_prompt_responses <- manual_raw_prompts[[1]]
+    for(i in 2:length(manual_raw_prompts)){
+      manual_prompt_responses <- bind_rows(manual_prompt_responses,manual_raw_prompts[[i]])
+    }
+    merge_responses <- anti_join(manual_prompt_responses,prompt_responses, by = c("system_file","TimeStampPrompted"))
+    pre_filtered_prompts <- bind_rows(prompt_responses,merge_responses)
+  } else {
+    pre_filtered_prompts <- prompt_responses
+  }
+  write_csv(pre_filtered_prompts,paste(data_dirname,"prompt_responses.csv", sep = "/"))
+  return(pre_filtered_ema)
+}
+
 pipe_print <- function(data_to_pass, string_to_print){
   print(string_to_print)
   return(data_to_pass)
@@ -164,18 +193,24 @@ generate_missing_column <- function(data_name, column_names){
 }
 
 read_file_list <- function(data_dirname, 
-                           midpoint_dirname, 
-                           end_dirname,
-                           id_filter, 
+                           midpoint_dirname = NULL, 
+                           end_dirname = NULL,
+                           id_filter = "*", 
                            file_filter, 
-                           hour_filter = TRUE){
-  data_files <- dir(paste(data_dirname,midpoint_dirname, sep = "/"),pattern = id_filter)
-  data_dirs <- paste(data_dirname,midpoint_dirname,data_files, sep = "/")
-  date_files <- dir(paste(data_dirs,end_dirname, sep = "/"), full.names = TRUE)
-  if(hour_filter){
-    date_files <- dir(date_files, full.names = TRUE)
+                           hour_filter = TRUE,
+                           recursive = TRUE){
+  if(!is.null(midpoint_dirname) & !is.null(end_dirname)){
+    data_files <- dir(paste(data_dirname,midpoint_dirname, sep = "/"),pattern = id_filter)
+    data_dirs <- paste(data_dirname,midpoint_dirname,data_files, sep = "/")
+    date_files <- dir(paste(data_dirs,end_dirname, sep = "/"), full.names = TRUE)
+  
+    if(hour_filter){
+      date_files <- dir(date_files, full.names = TRUE)
+    }
+    return_files <- list.files(date_files,pattern = file_filter, full.names = TRUE, include.dirs = FALSE, recursive = recursive)
+  } else {
+    return_files <- list.files(data_dirname,pattern = file_filter, full.names = TRUE, include.dirs = FALSE, recursive = recursive)
   }
-  return_files <- list.files(date_files,pattern = file_filter, full.names = TRUE, include.dirs = FALSE, recursive = TRUE)
   return(return_files)
 }
 

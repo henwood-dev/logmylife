@@ -102,6 +102,75 @@ demographics <- function(main_filepath, v1_filepath, v2_filepath, v30_filepath, 
   new_enroll <- clean_enrollment(enrollment_dirname)
 }
 
+process_personlevel_data <- function(new_enroll, tidy_baseline, tidy_followup, ema_gps){
+  copy_tidy <- copy(tidy_baseline) %>%
+    mutate(pid = as.numeric(pid))
+  copy_followup <- copy(tidy_followup) %>%
+    mutate(pid = as.numeric(pid))
+  copy_enroll <- copy(new_enroll)
+  
+  ema_exists <- ema_gps %>%
+    mutate(comply = ema_prompt_status == "Completed") %>%
+    group_by(pid) %>%
+    summarize_at(vars(comply), funs(mean)) %>%
+    filter(comply > 0) %>%
+    mutate(pid = as.numeric(pid)) %>%
+    select(-comply) %>%
+    mutate(ema_daily_exists = 1)
+  
+  copy_enroll <- data.table(copy_enroll, key = "pid")
+  copy_tidy <- data.table(copy_tidy, key = "pid")
+  copy_followup <- data.table(copy_followup, key = "pid")
+  ema_exists <- data.table(ema_exists, key = "pid")
+  
+  merged_data <- copy_enroll[copy_tidy][copy_followup][ema_exists]
+  
+  demo_changes <- merged_data %>%
+    filter(!is.na(age_demo) & age_demo < 28) %>%
+    mutate(placeslived_uh_current_main = case_when(
+      housing_status == 1 ~ NA_character_,
+      pid == 2001 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2002 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2003 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2004 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2005 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2006 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2016 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2017 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      TRUE ~ as.character(placeslived_uh_current_main)
+    ))
+  
+#   
+#   replace placeslived_uh_current_main = 5 if pid == 2008 //wrote "My mom's house" on contact form and missing item in survey
+#   replace placeslived_uh_current_main = 11 if pid == 2012 //wrote "outside" on contact form and missing item in survey
+#   replace placeslived_uh_current_main = 11 if pid == 2015 //wrote "anywhere in LA" and had special situation during week where she disclosed living outside in various areas near LA live
+#   replace placeslived_uh_current_main = 11 if pid == 2024 //wrote "on the streets" on contact form w/ no data in survey
+#   replace placeslived_uh_current_main = 11 if pid == 2047 //Before V2 noticed main place on BL was listed as juvenile detention/jail, which didn't makes sense in the first place and contact form said behind salvation army near MFP (known encampment) so clarified w/ SP in-person during f/u interview that BL response was an error and that they are living outside in a tent
+# 	replace placeslived_uh_current_main = 11 if pid == 2059 //"tent" on contact form "tent" 
+# 	replace placeslived_uh_current_main = 13 if pid == 2023 //Other "shelter" on BL, blank on contact form --> shelter
+# 	replace placeslived_uh_current_main = 15 if pid == 2066 //NEW OPTION FOR RECODED PLACES OF BUSINESS -- "homeless" on contact form, Other: "Lobby" on baseline
+# 	replace placeslived_uh_current_main = 15 if pid == 2071 //NEW OPTION FOR RECODED PLACES OF BUSINESS -- "homeless" in north hollywood on contact form and other: "gym" on survey
+# 	replace placeslived_uh_current_main = 13 if pid == 2092 //baseline Other "shelter," contact form HAL --> shelter
+# 	replace placeslived_uh_current_main = 13 if pid == 2103 | pid == 2104 | pid == 2107 | pid == 2111 // Daniel at Cov confirmed they were all in emergency shelter at time of enrollment
+# *discordant between survey and contact form to be switched to missing
+# 	replace placeslived_uh_current_main = . if pid == 2018 //basline Other: "skatepark", friends home on contact form --> discordant
+# 	replace placeslived_uh_current_main = . if pid == 2080 //vehicle on survey vs HAL on contact form --> discordant
+# 	replace placeslived_uh_current_main = . if pid == 2115 //vehicle on survey vs HAL on contact form --> discordant
+# 	replace placeslived_uh_current_main = . if pid == 2126 //relative's home on survey vs HAL on contact form --> discordant
+# 	replace placeslived_uh_current_main = . if pid == 2127 //abandoned building/squat on survey vs HAL on contact form --> discordant
+# 	replace placeslived_uh_current_main = . if pid == 2131 //family home on survey vs HAL on contact form --> discordant
+# 	drop living_situation_unhoused
+# 	
+# 	*collapse to 3 groups: explicit homelessness, shelter, or some type of home or hotel/motel
+# 	recode placeslived_uh_current_main (1 4 11 15 = 1 "Explicit homelessness") (2 3 13 14 = 2 "Shelter") (5 6 7 8 10 = 3 "Someone's home or hotel/motel") , gen(placelive_current_collapse)
+# 	
+# 	*bins for each one
+# 	recode placelive_current_collapse (1 = 1) (2 3 = 0), gen(homeless_cat_explicit)
+# 	recode placelive_current_collapse (2 = 1) (1 3 = 0), gen(homeless_cat_shelter)
+# 	recode placelive_current_collapse (3 = 1) (1 2 = 0), gen(homeless_cat_homeorhotel)
+#   
+}
+
 tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
   new_data <- copy(clean_baseline_data)
   r_tidy_names <- fread(paste0(main_filepath,"/r_tidy.csv")) %>%
@@ -117,13 +186,15 @@ tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
   setnames(new_data,r_tidy_names$varname_r,r_tidy_names$varname_tidy)
   if(bl_or_v2q == "v2q"){
     setnames(new_data,c("v2q_version"),c("surveyversion_v2q"))
+    setnames(new_data,c("v2q_surveytype"),c("survey_type_h_uh_v2q"))
     new_data <- select(new_data,pid,surveyversion_v2q,one_of(r_tidy_names$varname_tidy),starts_with("sni_"))
   } else {
     new_data <- select(new_data,pid,one_of(r_tidy_names$varname_tidy),starts_with("sni_")) 
   }
   if(bl_or_v2q == "bl"){
+    new_data <- as.data.table(new_data)[pid != "1115"]
+    
     new_data <- new_data %>%
-      filter(pid != "1115") %>%
       mutate(age_18to25 = ifelse(!is.na(age_demo),ifelse(age_demo < 26,1,0),NA_integer_)) %>%
       mutate(race_eth_combine = case_when((race_single == "Black or African-American" | race_single == "Black") & hispanic_latinx != "Yes" ~ "Black",
                                           race_single == "White" & hispanic_latinx != "Yes" ~ "White",
@@ -143,10 +214,97 @@ tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
                                                     TRUE ~ NA_character_),
              education_highest_collapse = factor_keep_rename(education_highest_collapse, level_vector = c("Less than high school","High school or GED","Post high school education")))
     
+    qual_data <- new_data %>%
+      mutate(pid = as.character(pid)) %>%
+      select_if(is.character) %>%
+      filter_all(any_vars(!is.na(.)))
+    write_dta(qual_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline_qualitative.dta")
+    
+    new_data <- new_data %>%
+      select(-ends_with("_text")) %>%
+      mutate(tobacco_last_use2 = as_character(tobacco_last_use),
+             tobacco_last_use2 = ifelse(tobacco_ever == 0, "Never", tobacco_last_use2),
+             tobacco_last_use = factor_add_new(tobacco_last_use,tobacco_last_use2,"Never")) %>%
+      select(-tobacco_last_use2) %>%
+      mutate_at(vars(tobacco_30day_types_chewing, tobacco_30day_types_other,
+                     tobacco_30day_types_smoked, tobacco_30day_types_vaped), funs(carry_zero_forward(tobacco_last_use, ., use_var = 1, flip_sign = TRUE))) %>%
+      mutate_at(vars(tobacco_freq_smoke), funs(carry_zero_forward(tobacco_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = "Not at all"))) %>%
+      mutate_at(vars(starts_with("tobacco_quant_smoke_daily")), funs(carry_zero_forward(tobacco_freq_smoke, ., use_var = 3, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate_at(vars(starts_with("tobacco_quant_smoke_week")), funs(carry_zero_forward(tobacco_freq_smoke, ., use_var = 2, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate_at(vars(tobacco_freq_smokeless), funs(carry_zero_forward(tobacco_30day_types_chewing, ., use_var = 1, flip_sign = TRUE, replace_var = "Not at all"))) %>%
+      mutate_at(vars(tobacco_freq_vape), funs(carry_zero_forward(tobacco_30day_types_vaped, ., use_var = 1, flip_sign = TRUE, replace_var = "Not at all"))) %>%
+      mutate(marijuana_last_use2 = as_character(marijuana_last_use),
+             marijuana_last_use2 = ifelse(marijuana_ever == 0, "Never", marijuana_last_use2),
+             marijuana_last_use = factor_add_new(marijuana_last_use,marijuana_last_use2, 
+                                                 c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      select(-marijuana_last_use2) %>%
+      mutate_at(vars(marijuana_30day_freq), funs(carry_zero_forward(marijuana_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate_at(vars(starts_with("marijuana_30day_type"),starts_with("marijuana_30day_roa")),
+                funs(carry_zero_forward(marijuana_30day_freq, ., use_var = 0, flip_sign = FALSE, replace_var = 0))) %>%
+      mutate_at(vars(marijuana_freq_current), funs(carry_zero_forward(marijuana_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = "Use once a month or less"))) %>%
+      mutate(alcohol_last_use2 = as_character(alcohol_last_use),
+             alcohol_last_use2 = ifelse(alcohol_ever == 0, "Never", alcohol_last_use2),
+             alcohol_last_use = factor_add_new(alcohol_last_use,alcohol_last_use2, 
+                                                 c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      select(-alcohol_last_use2) %>%
+      mutate_at(vars(alcohol_30day_freq), funs(carry_zero_forward(alcohol_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(cocaine_last_use = carry_factor_forward(cocaine_ever, cocaine_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(cocaine_30day_freq), funs(carry_zero_forward(cocaine_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(crack_last_use = carry_factor_forward(crack_ever, crack_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(crack_30day_freq), funs(carry_zero_forward(crack_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(hallucinogen_last_use = carry_factor_forward(hallucinogen_ever, hallucinogen_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(hallucinogen_30day_freq), funs(carry_zero_forward(hallucinogen_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(heroin_last_use = carry_factor_forward(heroin_ever, heroin_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(heroin_30day_freq), funs(carry_zero_forward(heroin_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(inhalants_last_use = carry_factor_forward(inhalants_ever, inhalants_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(inhalants_30day_freq), funs(carry_zero_forward(inhalants_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(ketamine_last_use = carry_factor_forward(ketamine_ever, ketamine_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(ketamine_30day_freq), funs(carry_zero_forward(ketamine_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(mdma_last_use = carry_factor_forward(mdma_ever, mdma_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(mdma_30day_freq), funs(carry_zero_forward(mdma_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(meth_last_use = carry_factor_forward(meth_ever, meth_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(meth_30day_freq), funs(carry_zero_forward(meth_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(nitrous_last_use = carry_factor_forward(nitrous_ever, nitrous_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(nitrous_30day_freq), funs(carry_zero_forward(nitrous_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(otherdrug_last_use = carry_factor_forward(otherdrug_ever_selected, otherdrug_last_use, parent_value = 0, new_value = "Never",
+                                                      new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(otherdrug_30day_freq), funs(carry_zero_forward(otherdrug_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(pcp_last_use = carry_factor_forward(pcp_ever, pcp_last_use, parent_value = 0, new_value = "Never",
+                                                  new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(pcp_30day_freq), funs(carry_zero_forward(pcp_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(rxmisuse_last_use = carry_factor_forward(rxmisuse_ever, rxmisuse_last_use, parent_value = 0, new_value = "Never",
+                                                  new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(rxmisuse_30day_freq), funs(carry_zero_forward(rxmisuse_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(synthetic_mj_last_use = carry_factor_forward(synthetic_mj_ever, synthetic_mj_last_use, parent_value = 0, new_value = "Never",
+                                                     new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(synthetic_mj_30day_freq), funs(carry_zero_forward(synthetic_mj_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      mutate(steroid_last_use = carry_factor_forward(steroid_ever, steroid_last_use, parent_value = 0, new_value = "Never",
+                                                          new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
+      mutate_at(vars(steroid_30day_freq), funs(carry_zero_forward(steroid_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0)))
+    
+       
+    
     write_dta(new_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline_tidy.dta")
   } else {
     new_data <- new_data %>%
       filter(pid != "1115")
+    
+    qual_data <- new_data %>%
+      mutate(pid = as.character(pid)) %>%
+      select_if(is.character) %>%
+      filter_all(any_vars(!is.na(.)))
+    write_dta(qual_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup_qualitative.dta")
+    
+    
     write_dta(new_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup_tidy.dta")
   }
   
@@ -215,8 +373,9 @@ clean_followup <- function(v2q_data){
   n_vars <- append(rep_varnames("hes_n_",1:9),rep_varnames("hes_uh_n_",1:9))
   nsc_vars <- append(rep_varnames("hes_nsc_",1:8),rep_varnames("hes_uh_nsc_",1:8))
   
+  
   hes_d_vars <- paste0(rep_varnames("hes_d_",1:7))
-  new_hes_d <- c("hes_d_10_name_on_lease","hes_d_2_household_size","hes_d_3_bedrooms_quant","hes_d_4_bathrooms_quant","hes_d_5_other_rooms_quant","hes_d_7_what_floor","hes_d_add_choice_in_livsit")
+  new_hes_d <- c("hes_d_1_household_size","hes_d_2_bedrooms_quant","hes_d_3_bathrooms_quant","hes_d_4_other_rooms_quant","hes_d_5_what_floor","hes_d_10_name_on_lease","hes_d_add_choice_in_livsit")
   
   filtered_followup <- v2q_data %>%
     select(-startdate,-enddate,-status,-ipaddress,-progress,-finished,-recordeddate,-starts_with("recipient"),
@@ -295,7 +454,17 @@ clean_followup <- function(v2q_data){
       "2-3 times a week","Once a day or more")))) %>%
     mutate_at(vars(starts_with("ei_extent_")), funs(factor_keep_rename(., level_vector = c(
       "Not at all","A little bit","Somewhat","Quite a bit","Very much")))) %>%
-    select(-duration_in_seconds,-v2q_date,-v2q_surveytype,-q276) %>%
+    mutate_at(vars(ei_typweek,hes_d_5), funs(factor_keep_rename(.))) %>%
+    mutate_at(vars(hes_uh_c_na, hes_d_6), funs(factor_keep_rename(., level_vector = c("No","Yes")))) %>%
+    mutate_at(vars(hes_d_1,hes_d_2), funs(factor_keep_rename(., level_vector = c("1","2","3","4","5 or more")))) %>%
+    mutate_at(vars(hes_d_4), funs(factor_keep_rename(., level_vector = c("0","1","2","3","4","5 or more")))) %>%
+    mutate_at(vars(hes_d_7), funs(factor_keep_rename(., level_vector = c("None at all",
+                                                                         "A little",
+                                                                         "A moderate amount",
+                                                                         "A lot",
+                                                                         "A great deal")))) %>%
+    mutate_at(vars(v2q_version), funs(numeric_keep_rename(.))) %>%
+    select(-duration_in_seconds,-v2q_date,-q276) %>%
     setnames(c("hes_rs_6_1","hes_uh_rs_6_1"),c("hes_rs_duration_want_to_stay","hes_uh_rs_duration_want_to_stay")) %>%
     setnames(c("smasi_sf_servacc","smasi_sf_servacc_30d","smasi_sf_servenv","smasi_sf_servenv_30d"
                ),c("smasi_sf_serviceaccess","smasi_sf_30day_serviceaccess","smasi_sf_servicefit","smasi_sf_30day_servicefit"))

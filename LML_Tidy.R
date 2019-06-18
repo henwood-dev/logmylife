@@ -78,16 +78,21 @@ full_study_adapter <- function() {
                                   v6_v2q_filepath = v6_v2q_filepath,
                                   v7_v2q_filepath = v7_v2q_filepath)
   
+  new_enroll <<- clean_enrollment(enrollment_dirname)
   new_baseline <<- clean_baseline(baseline_data)
   tidy_baseline <<- tidy_name_adapter(main_filepath,new_baseline,"bl")
   new_followup <<- clean_followup(v2q_data)
   tidy_followup <<- tidy_name_adapter(main_filepath,new_followup,"v2q")
-  new_enroll <<- clean_enrollment(enrollment_dirname)
+  
+  
   
   ema <<- tidy_ema(data_dirname, wockets_dirname,manual_dirname,new_baseline,new_enroll,FALSE,FALSE,TRUE)
   write_dta(ema,paste0(data_dirname,"/ema_sni.dta"))
-  daily <<- tidy_daily(data_dirname, wockets_dirname,manual_dirname,new_baseline,new_enroll,FALSE,FALSE,TRUE)
+  daily <<- tidy_daily(data_dirname, wockets_dirname,manual_dirname, enrollment_dirname,new_baseline,new_enroll,FALSE,FALSE,TRUE)
   write_dta(daily,paste0(data_dirname,"/daily_sni.dta"))
+  prompts <- tidy_prompts(data_dirname, wockets_dirname, manual_dirname, FALSE, TRUE)
+  write_dta(prompts,paste0(data_dirname,"/ema_prompts.dta"))
+  
   
   #housing_geo <- gps_geocode_address()
   housing_geo <<- read_csv("/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/geocoded_housing.csv")
@@ -289,7 +294,7 @@ export_person_level <- function(data_dirname, ema_gps, daily){
 }
 
 
-tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname,
+tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname, enrollment_dirname,
                        new_baseline = NULL, new_enroll = NULL,
                        skip_manual = FALSE, retain_names = FALSE, 
                        fast_mode = FALSE){
@@ -364,9 +369,9 @@ tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname,
     bind_cols(sex_partners_daily(.)) %>%
     bind_cols(sex_where_daily(.)) %>%
     bind_cols(multiple_sex_partners(.)) %>%
-    bind_cols(sleepy_time(.)) %>%
-    bind_cols(sleepy_time(., lowrange = 0, highrange = 2)) %>%
-    bind_cols(sleepy_time(., lowrange = 14, highrange = 24))
+    bind_cols(sleepy_time(., enrollment_dirname = enrollment_dirname)) %>%
+    bind_cols(sleepy_time(., enrollment_dirname = enrollment_dirname, lowrange = 0, highrange = 2)) %>%
+    bind_cols(sleepy_time(., enrollment_dirname = enrollment_dirname, lowrange = 14, highrange = 24))
   if(!retain_names){
     filtered_dailylog <- filtered_dailylog %>%
       select(-Q3_sleeploc,-Q1_waketime,-Q2_sleeptime,-Q3_b_sleep_quality,
@@ -429,6 +434,42 @@ tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname,
   
   
   return(filtered_dailylog)
+}
+
+tidy_prompts <- function(data_dirname, wockets_dirname, manual_dirname,
+                       # new_baseline = NULL, new_enroll = NULL,
+                        skip_manual = FALSE, # retain_names = FALSE, 
+                        fast_mode = FALSE) {
+  if(!fast_mode){
+    pre_filtered_prompts <- write_prompt_responses(data_dirname = data_dirname,
+                                            wockets_dirname = wockets_dirname,
+                                            manual_dirname = manual_dirname,
+                                            skip_manual = skip_manual)
+  } else {
+    pre_filtered_prompts <- fread(paste(data_dirname,"prompt_responses.csv",sep="/"))
+  }
+  
+  filtered_prompts <- pre_filtered_prompts %>%
+    select(pid = system_file, TimeStampPrompted, TimeStampStarted, TimeStampCompleted, PromptType, NumReprompt, Status, Reason) %>%
+    mutate(prompt_time = str_replace(TimeStampPrompted,"PDT",""),
+           prompt_time = str_replace(prompt_time,"PST",""),
+           prompt_time = as.POSIXct(prompt_time, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01"),
+           prompt_date = as_date(prompt_time),
+           start_time = str_replace(TimeStampStarted,"PDT",""),
+           start_time = str_replace(start_time,"PST",""),
+           start_time = as.POSIXct(start_time, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01"),
+           start_date = as_date(start_time),
+           stop_time = str_replace(TimeStampCompleted,"PDT",""),
+           stop_time = str_replace(stop_time,"PST",""),
+           stop_time = as.POSIXct(stop_time, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01"),
+           stop_date = as_date(stop_time)
+    ) %>%
+    group_by(pid,prompt_date,PromptType) %>%
+    summarise_all(funs(first)) %>%
+    mutate(timetocomplete = as.integer(stop_time - prompt_time)) %>%
+    rename_all(funs(paste0("prompts_",tolower(.))))
+    
+  
 }
 
 tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,

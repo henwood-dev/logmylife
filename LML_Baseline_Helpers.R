@@ -77,7 +77,21 @@ baseline_align_sni_alters <- function(sni_column, new_name){
 sni_baseline <- function(filtered_baseline){
   sni_baseline_only <- filtered_baseline %>%
     select(starts_with("sni_")) %>%
-    select(-sni_version,-starts_with("sni_alter_ids_"))
+    select(-sni_version,-starts_with("sni_alter_ids_")) %>%
+    mutate_at(vars(starts_with("sni_gender_")),funs(case_when(
+      . == "1" ~ "male",
+      . == "2" ~ "female",
+      . == "3" ~ "trans male/trans man",
+      . == "4" ~ "trans female/trans woman",
+      . == "5" ~ "genderqueer/gender non-conforming",
+      . == "6" ~ "different identity",
+      TRUE ~ tolower(.)
+    ))) %>%
+    mutate_at(vars(starts_with("sni_rel_h_")),funs(case_when(
+      . == "Person you are romantically, intimately or sexually involved with" ~ "Person you are romantically, intimately, or sexually involved with",
+      . == "Friend or other peer you know from the street or peers you interact with at a service agency"  ~ "Friend or other peer you know from the street or peers you interacted with at a homeless service agency, like a shelter or drop-in",
+      TRUE ~ .
+    )))
   
   sni_bl_names <- function(sni_baseline_only, endswithvar, newendswithvar){
     number_names <- names(select(sni_baseline_only,ends_with(endswithvar)))
@@ -102,7 +116,25 @@ sni_baseline <- function(filtered_baseline){
                       ,-ends_with("_a4"),-ends_with("_a5")))
   
   new_sni_baseline <- sni_baseline_only %>%
-    mutate_at(vars(one_of(remaining_names)),funs(simplify_baseline_sni_id(.)))
+    mutate_at(vars(one_of(remaining_names)),funs(simplify_baseline_sni_id(.))) %>%
+    mutate_at(vars(starts_with("sni_bl_rel_h_a")),funs(factor_keep_rename(.,c("Case worker, social worker, agency staff or volunteer",
+                                                                          "Person from work",
+                                                                          "Person from school",
+                                                                          "Friend or other peer you know from the street or peers you interacted with at a homeless service agency, like a shelter or drop-in",
+                                                                          "Friend from home or from before you were homeless",
+                                                                          "Person you are romantically, intimately, or sexually involved with",
+                                                                          "Family (could include both biological and foster family)",
+                                                                          "Other, please specify",
+                                                                          "Friend or other resident you know from your current transitional or permanent housing program or another similar housing program"
+                                                                          )))) %>%
+    mutate_at(vars(starts_with("sni_bl_rel_uh_a")),funs(factor_keep_rename(.,c("Case worker, social worker, agency staff or volunteer",
+                                                                          "Person from work",
+                                                                          "Person from school",
+                                                                          "Friend or other peer you know from the street or peers you interact with at a service agency, like a shelter or drop-in",
+                                                                          "Friend from home or before you were homeless",
+                                                                          "Person you are romantically, intimately, or sexually involved with",
+                                                                          "Family (could include both biological and foster family)",
+                                                                          "Other, please specify")))) 
   
   for(i in remaining_names){
     new_name <- str_sub(i,5)
@@ -1893,6 +1925,62 @@ numeric_keep_rename <- function(var_column){
   numeric_column <- as.numeric(var_column)
   attr(numeric_column,"label") <- original_label_name
   return(numeric_column)
+}
+
+carry_zero_forward <- function(ref_col, change_col, use_var = 0, flip_sign = FALSE, replace_var = 0){
+  
+  original_label_name <- attributes(change_col)$label
+  if(is.character(replace_var)){
+    original_level_name <- attributes(change_col)$levels
+  }
+  
+  if(is.character(replace_var)){
+    if(flip_sign){
+      new_col <- ifelse(as.integer(ref_col) != use_var & !is.na(ref_col), replace_var, as.character(change_col))
+    } else {
+      new_col <- ifelse(as.integer(ref_col) == use_var, replace_var, as.character(change_col)) 
+    }
+  } else {
+    if(flip_sign){
+      new_col <- ifelse(as.integer(ref_col) != use_var & !is.na(ref_col), replace_var, change_col)
+    } else {
+      new_col <- ifelse(as.integer(ref_col) == use_var, replace_var, change_col) 
+    }
+  }
+  
+  
+  if(is.character(replace_var)){
+    new_col <- factor(new_col, levels = original_level_name)
+  }
+  attr(new_col,"label") <- original_label_name
+  
+  
+  return(new_col)
+}
+
+carry_factor_forward <- function(parent_column, child_column, parent_value = 0, new_value,
+                                 new_label_pair = new_value, first = FALSE){
+  hold_column <- as_character(child_column)
+  hold_column <- ifelse(parent_column == parent_value, new_value, hold_column)
+  return_column <- factor_add_new(child_column,hold_column, new_label_pair, first = first) 
+  return(return_column)
+}
+
+factor_add_new <- function(old_var_column, new_var_column, new_value, first = FALSE){
+  original_label_name <- attributes(old_var_column)$label
+  original_level_name <- attributes(old_var_column)$levels
+  
+  if(first){
+    original_level_name <- append(original_level_name, new_value, after = 0)
+  } else {
+    original_level_name <- append(original_level_name, new_value)
+  }
+  
+  factored_column <- factor(new_var_column, levels = original_level_name)
+
+  attr(factored_column,"label") <- original_label_name
+  
+  return(factored_column)
 }
 
 factor_keep_rename <- function(var_column, level_vector = NULL){

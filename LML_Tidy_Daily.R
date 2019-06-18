@@ -10,19 +10,19 @@ library(tidyverse)
 
 select <- dplyr::select
 
-sleepy_time <- function(filtered_dailylog, lowrange = 2, highrange = 14){
+sleepy_time <- function(filtered_dailylog, enrollment_dirname, lowrange = 2, highrange = 14, sleep_file = "sleep_check.csv"){
   return_sleep <- filtered_dailylog %>%
-    select(daily_prompt_date,daily_prompt_time,wake_hour,sleep_hour,sleep_minute,wake_minute,no_sleep) %>%
+    select(pid,daily_prompt_date,daily_prompt_time,wake_hour,sleep_hour,sleep_minute,wake_minute,no_sleep) %>%
     mutate(date_now = daily_prompt_date,
            date_yesterday = date_now - days(),
            og_wake_hour = wake_hour,
            og_sleep_hour = sleep_hour,
            og_wake_min = wake_minute,
            og_sleep_min = sleep_minute) %>%
+    mutate(opt = daily_prompt_time) %>%
     mutate(daily_prompt_time = gsub("PDT ","",daily_prompt_time),
            daily_prompt_time = gsub("PST ","",daily_prompt_time),
            time_full = as.POSIXct(daily_prompt_time, format = "%a %b %d %T %Y", tz = "America/Los_Angeles", origin = "1970-01-01")) %>%
-    select(-daily_prompt_time) %>%
     mutate(wake_hour = ifelse(wake_hour > 12, wake_hour - 12, wake_hour),
            sleep_hour = ifelse(sleep_hour > 12, sleep_hour - 12, sleep_hour),
            wake_hour = ifelse(wake_hour == 0, 12,wake_hour),
@@ -32,8 +32,8 @@ sleepy_time <- function(filtered_dailylog, lowrange = 2, highrange = 14){
            sleep_am_time = paste0(format(date_now,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0")," AM"),
            sleep_pm_time = paste0(format(date_yesterday,"%Y-%m-%d")," ",str_pad(sleep_hour,2,pad="0"),":",str_pad(sleep_minute,2,pad = "0"), " PM")) %>%
     mutate_at(vars(ends_with("time")),funs(as.POSIXct(., format = "%Y-%m-%d %I:%M %p", origin = "1970-01-01", tz = "America/Los_Angeles"))) %>%
-    mutate(wake_am_time = ifelse(wake_am_time > time_full,0,wake_am_time),
-           wake_pm_time = ifelse(wake_pm_time > time_full,0,wake_pm_time),
+    mutate(wake_am_time = ifelse(wake_am_time - lubridate::minutes(20) > time_full,0,wake_am_time),
+           wake_pm_time = ifelse(wake_pm_time - lubridate::minutes(20) > time_full,0,wake_pm_time),
            sleep_am_time = ifelse(sleep_am_time > time_full,0,sleep_am_time)) %>%
     mutate_at(vars(wake_am_time,wake_pm_time,sleep_am_time),funs(as.POSIXct(., origin = "1970-01-01", tz = "America/Los_Angeles"))) %>%
     mutate(wakeam_sleepam = as.numeric(difftime(wake_am_time,sleep_am_time,units = "hours")),
@@ -87,11 +87,23 @@ sleepy_time <- function(filtered_dailylog, lowrange = 2, highrange = 14){
            a_sleep_48 = ifelse(is.na(p_wake_48) & sleep_missing == 1,NA,a_sleep_48),
            p_sleep_48 = ifelse(is.na(a_wake_48) & sleep_missing == 1,NA,p_sleep_48)) %>%
     mutate(sleep_missing = is.na(a_wake_48)+is.na(p_wake_48)+is.na(a_sleep_48)+is.na(p_sleep_48)) %>%
-    select(sleep_time,a_wake_48,p_wake_48,a_sleep_48,p_sleep_48,sleep_missing)
-    
+    select(-daily_prompt_time) %>%
+    rename(daily_prompt_time = opt) %>%
+    select(pid, daily_prompt_time, sleep_time,a_wake_48,p_wake_48,a_sleep_48,p_sleep_48,sleep_missing)
+  
   if(lowrange != 2 & highrange != 14){
     return_sleep <- return_sleep %>%
+      select(-pid,-daily_prompt_time) %>%
       rename_all(funs(paste0(.,"_",as.character(lowrange),"to",as.character(highrange))))
+    } else {
+    sleep_diary_check <- fread(paste(enrollment_dirname,sleep_file,sep = "/")) %>%
+      select(pid, daily_prompt_time, check3) %>%
+      mutate(pid = as.character(pid))
+    
+    return_sleep <- return_sleep %>%
+      left_join(sleep_diary_check, by = c("pid","daily_prompt_time")) %>%
+      rename(selection_criteria = check3) %>%
+      select(-pid,-daily_prompt_time)
   }
   
   return(return_sleep)
