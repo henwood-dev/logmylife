@@ -69,7 +69,10 @@ baseline_align_sni_alters <- function(sni_column, new_name){
   
   return_sociallog <- prereturn_sociallog %>%
     select(-sni_social) %>%
-    select_all(.funs = funs(paste0("sni_bl_",new_name,"_",str_sub(.,12))))
+    select_all(.funs = funs(paste0("sni_bl_",new_name,"_",str_sub(.,12)))) %>%
+    cbind(social_daily) %>%
+    mutate_at(1:6, funs(ifelse(is.na(sni_social),NA,.))) %>%
+    select(-sni_social)
   
   return(return_sociallog)
 }

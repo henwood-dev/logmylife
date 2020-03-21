@@ -1,5 +1,6 @@
 # Libraries
 library(sjlabelled)
+library(sjmisc)
 library(splitstackshape)
 library(data.table)
 library(doParallel)
@@ -27,6 +28,8 @@ source("LML_Baseline_Helpers.R", encoding = "UTF-8")
 not_all_na <- function(x) any(!is.na(x))
 
 main_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/_Raw Data/TSV"
+main_export_filepath <- "/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports"
+
 enrollment_dirname <- main_filepath
 
 v1_filepath <-"V1/Baseline V10.csv"
@@ -50,6 +53,34 @@ v4_v2q_filepath <- "V2Q V4.csv"
 v5_v2q_filepath <- "V2Q V5.csv"
 v6_v2q_filepath <- "V2Q V6.csv"
 v7_v2q_filepath <- "V2Q V7.csv"
+
+v2q_redcap_filepath <- "exit scales_redcap.csv"
+
+redcap_to_v1 <- function(main_filepath, v2q_redcap_filepath) {
+  redcap_data <- read_csv(paste(main_filepath,v2q_redcap_filepath, sep = "/")) %>%
+    filter(`Event Name` == "Exit Interview") %>%
+    filter(`Complete?` == "Complete") %>%
+    rename(selectoff = 8) %>%
+    filter(is.na(selectoff)) %>%
+    mutate(pid = as.character(`Participant ID`)) %>%
+    select(pid, 9:26) %>%
+    select(v2q_pid = pid,
+           ei_phonetype = 2,
+           ei_phonepref = 3,
+           ei_typweek = 5,
+           ei_typweek_2_text = 6,
+           ei_genexp = 7,
+           ei_interfere = 9,
+           ei_stress = 10,
+           ei_behalter = 12,
+           ei_honestly = 13,
+           ei_doitagain = 14,
+           ei_judged = 15,
+           ei_follow_up_yn = 19) %>%
+    filter(!is.na(ei_follow_up_yn)) 
+  
+  return(redcap_data)
+}
 
 rename_drugs <- function(varname, suffix, length){
   drug_list <- c("alc","meth","mdma","synmj","halluc","pdm","heroin","coc","crack","inhal","ster","no2","ket","pcp")
@@ -102,13 +133,25 @@ demographics <- function(main_filepath, v1_filepath, v2_filepath, v30_filepath, 
   new_enroll <- clean_enrollment(enrollment_dirname)
 }
 
-process_personlevel_data <- function(new_enroll, tidy_baseline, tidy_followup, ema_gps){
-  copy_tidy <- copy(tidy_baseline) %>%
-    mutate(pid = as.numeric(pid))
+process_personlevel_data <- function(data_dirname, new_enroll, tidy_baseline, tidy_followup, ema_gps, main_export_filepath){
+  
+  new_ethnicity <- read_csv(paste(main_export_filepath,"race-eth clean vars.csv",sep = "/"))
+  new_ethnicity$race_clean <- set_label(new_ethnicity$race_clean, "Race, cleaned using all response options")
+  new_ethnicity$hispanic_clean <- set_label(new_ethnicity$hispanic_clean, "Hispanic ethnicity, cleaned using all response options")
+  
+  copy_baseline <- copy(tidy_baseline) %>%
+    mutate(pid = as.numeric(pid)) %>%
+    left_join(new_ethnicity, by = "pid") %>%
+    mutate(race_clean = factor_keep_rename(race_clean),
+           hispanic_clean = factor_keep_rename(hispanic_clean, level_vector = c("No or don't know",
+                                                                                "Yes"))) 
+  
   copy_followup <- copy(tidy_followup) %>%
     mutate(pid = as.numeric(pid))
-  copy_enroll <- copy(new_enroll)
   
+  copy_enroll <- copy(new_enroll) 
+  
+    
   ema_exists <- ema_gps %>%
     mutate(comply = ema_prompt_status == "Completed") %>%
     group_by(pid) %>%
@@ -116,14 +159,39 @@ process_personlevel_data <- function(new_enroll, tidy_baseline, tidy_followup, e
     filter(comply > 0) %>%
     mutate(pid = as.numeric(pid)) %>%
     select(-comply) %>%
-    mutate(ema_daily_exists = 1)
+    mutate(ema_exists = 1)
   
-  copy_enroll <- data.table(copy_enroll, key = "pid")
-  copy_tidy <- data.table(copy_tidy, key = "pid")
-  copy_followup <- data.table(copy_followup, key = "pid")
-  ema_exists <- data.table(ema_exists, key = "pid")
+  daily_exists <- daily %>%
+    mutate(comply = daily_prompt_status == "Completed") %>%
+    group_by(pid) %>%
+    summarize_at(vars(comply), funs(mean)) %>%
+    filter(comply > 0) %>%
+    mutate(pid = as.numeric(pid)) %>%
+    select(-comply) %>%
+    mutate(daily_exists = 1)
   
-  merged_data <- copy_enroll[copy_tidy][copy_followup][ema_exists]
+
+  merged_data <- copy_enroll %>%
+    inner_join(copy_baseline, by = "pid") %>%
+    left_join(copy_followup, by = "pid") %>%
+    left_join(ema_exists, by = "pid") %>%
+    left_join(daily_exists, by = "pid")
+  
+  pluhcm_levels <- levels(merged_data$placeslived_uh_current_main)
+  new_pluhcm_levels <- append(pluhcm_levels,"Place of business")
+  
+  hes_recode_vars <- c("hes_pq_2_privacy","hes_pq_3_4_5_6_unitprobs","hes_nq_2_crime_problem",
+                       "hes_nq_4_healthcare_difficulty","hes_nq_7_family_friends_far","hes_nq_8_street_lighting_poor",
+                       "hes_nq_10_noisy","hes_nq_12_traffic","hes_nq_14_outdoor_recreation","hes_nsc_2_unwelcome_ethnicity",
+                       "hes_nsc_4_policing_disparity","hes_nsc_5_hassle_walking","hes_nsc_6_careful_talk_to",
+                       "hes_s_1_freq_attack_nearby","hes_s_2_freq_drug_sales","hes_s_3_freq_drug_use",
+                       "hes_s_4_freq_robbery_nearby","hes_s_5_freq_theft_from_units","hes_s_6_freq_property_damage",
+                       "hes_s_7_freq_loitering","hes_s_8_freq_new_graffiti","hes_s_9_freq_weapons_used",
+                       "hes_n_5_no_close_neighbors","hes_n_8_neighbors_argue","hes_n_12_neighbor_complains",
+                       "hes_ll_6_only_cares_about_rent","hes_ll_7_doesnt_respond","hes_ll_11_contact_sp_issues_only",
+                       "hes_ll_12_contact_ll_issues_only","hes_ll_15_complains_about_me","hes_rm_10_dont_get_along",
+                       "hes_rm_11_argue_a_lot","hes_rm_14_takes_advantage","hes_rs_3_compare_prev_livsit",
+                       "hes_rs_4_compare_prev_nhood")
   
   demo_changes <- merged_data %>%
     filter(!is.na(age_demo) & age_demo < 28) %>%
@@ -137,41 +205,341 @@ process_personlevel_data <- function(new_enroll, tidy_baseline, tidy_followup, e
       pid == 2006 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
       pid == 2016 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
       pid == 2017 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      
+      pid == 2008 ~ "Family home",
+      pid == 2012 ~ "Street, park, beach, or outside",
+      pid == 2015 ~ "Street, park, beach, or outside",
+      pid == 2024 ~ "Street, park, beach, or outside",
+      pid == 2047 ~ "Street, park, beach, or outside",
+      pid == 2059 ~ "Street, park, beach, or outside",
+      pid == 2023 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2066 ~ "Place of business",
+      pid == 2071 ~ "Place of business",
+      pid == 2092 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2103 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2104 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2107 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2111 ~ "Youth-only emergency/temporary shelter (less than 30 days)",
+      pid == 2018 ~ "Street, park, beach, or outside",
+      pid == 2080 ~ NA_character_,
+      pid == 2115 ~ NA_character_,
+      pid == 2126 ~ NA_character_,
+      pid == 2127 ~ NA_character_,
+      pid == 2131 ~ NA_character_,
+      pid == 2119 ~ NA_character_,
       TRUE ~ as.character(placeslived_uh_current_main)
-    ))
-  
-#   
-#   replace placeslived_uh_current_main = 5 if pid == 2008 //wrote "My mom's house" on contact form and missing item in survey
-#   replace placeslived_uh_current_main = 11 if pid == 2012 //wrote "outside" on contact form and missing item in survey
-#   replace placeslived_uh_current_main = 11 if pid == 2015 //wrote "anywhere in LA" and had special situation during week where she disclosed living outside in various areas near LA live
-#   replace placeslived_uh_current_main = 11 if pid == 2024 //wrote "on the streets" on contact form w/ no data in survey
-#   replace placeslived_uh_current_main = 11 if pid == 2047 //Before V2 noticed main place on BL was listed as juvenile detention/jail, which didn't makes sense in the first place and contact form said behind salvation army near MFP (known encampment) so clarified w/ SP in-person during f/u interview that BL response was an error and that they are living outside in a tent
-# 	replace placeslived_uh_current_main = 11 if pid == 2059 //"tent" on contact form "tent" 
-# 	replace placeslived_uh_current_main = 13 if pid == 2023 //Other "shelter" on BL, blank on contact form --> shelter
-# 	replace placeslived_uh_current_main = 15 if pid == 2066 //NEW OPTION FOR RECODED PLACES OF BUSINESS -- "homeless" on contact form, Other: "Lobby" on baseline
-# 	replace placeslived_uh_current_main = 15 if pid == 2071 //NEW OPTION FOR RECODED PLACES OF BUSINESS -- "homeless" in north hollywood on contact form and other: "gym" on survey
-# 	replace placeslived_uh_current_main = 13 if pid == 2092 //baseline Other "shelter," contact form HAL --> shelter
-# 	replace placeslived_uh_current_main = 13 if pid == 2103 | pid == 2104 | pid == 2107 | pid == 2111 // Daniel at Cov confirmed they were all in emergency shelter at time of enrollment
-# *discordant between survey and contact form to be switched to missing
-# 	replace placeslived_uh_current_main = . if pid == 2018 //basline Other: "skatepark", friends home on contact form --> discordant
-# 	replace placeslived_uh_current_main = . if pid == 2080 //vehicle on survey vs HAL on contact form --> discordant
-# 	replace placeslived_uh_current_main = . if pid == 2115 //vehicle on survey vs HAL on contact form --> discordant
-# 	replace placeslived_uh_current_main = . if pid == 2126 //relative's home on survey vs HAL on contact form --> discordant
-# 	replace placeslived_uh_current_main = . if pid == 2127 //abandoned building/squat on survey vs HAL on contact form --> discordant
-# 	replace placeslived_uh_current_main = . if pid == 2131 //family home on survey vs HAL on contact form --> discordant
-# 	drop living_situation_unhoused
-# 	
-# 	*collapse to 3 groups: explicit homelessness, shelter, or some type of home or hotel/motel
-# 	recode placeslived_uh_current_main (1 4 11 15 = 1 "Explicit homelessness") (2 3 13 14 = 2 "Shelter") (5 6 7 8 10 = 3 "Someone's home or hotel/motel") , gen(placelive_current_collapse)
-# 	
-# 	*bins for each one
-# 	recode placelive_current_collapse (1 = 1) (2 3 = 0), gen(homeless_cat_explicit)
-# 	recode placelive_current_collapse (2 = 1) (1 3 = 0), gen(homeless_cat_shelter)
-# 	recode placelive_current_collapse (3 = 1) (1 2 = 0), gen(homeless_cat_homeorhotel)
-#   
+    )) %>%
+    mutate(placeslived_uh_current_main = factor_keep_rename(placeslived_uh_current_main, level_vector = new_pluhcm_levels)) %>%
+    select(-living_situation_unhoused) %>%
+    mutate(placelive_current_collapse = case_when(
+      as.numeric(placeslived_uh_current_main) == 1 ~ "Explicit homelessness",
+      as.numeric(placeslived_uh_current_main) == 4 ~ "Explicit homelessness",
+      as.numeric(placeslived_uh_current_main) == 11 ~ "Explicit homelessness",
+      as.numeric(placeslived_uh_current_main) == 15 ~ "Explicit homelessness",
+      as.numeric(placeslived_uh_current_main) == 2 ~ "Shelter",
+      as.numeric(placeslived_uh_current_main) == 3 ~ "Shelter",
+      as.numeric(placeslived_uh_current_main) == 13 ~ "Shelter",
+      as.numeric(placeslived_uh_current_main) == 14 ~ "Shelter",
+      as.numeric(placeslived_uh_current_main) == 5 ~ "Someone's home or hotel/motel",
+      as.numeric(placeslived_uh_current_main) == 6 ~ "Someone's home or hotel/motel",
+      as.numeric(placeslived_uh_current_main) == 7 ~ "Someone's home or hotel/motel",
+      as.numeric(placeslived_uh_current_main) == 8 ~ "Someone's home or hotel/motel",
+      as.numeric(placeslived_uh_current_main) == 10 ~ "Someone's home or hotel/motel",
+      TRUE ~ NA_character_)) %>%
+    bind_cols(to_dummy(.,placelive_current_collapse, suffix = "label")) %>%
+    rename(homeless_cat_homeorhotel = `placelive_current_collapse_Someone's home or hotel/motel`,
+           homeless_cat_shelter = placelive_current_collapse_Shelter,
+           homeless_cat_explicit = `placelive_current_collapse_Explicit homelessness`) %>%
+    mutate(sexual_ori_id_collapse = case_when(
+      as.character(sexual_orientation_id) == "Heterosexual or straight" ~ "Heterosexual or straight",
+      as.character(sexual_orientation_id) == "Gay or lesbian" ~ "Gay or lesbian",
+      as.character(sexual_orientation_id) == "Bisexual" ~ "Bisexual or pansexual",
+      as.character(sexual_orientation_id) == "Another sexual orientation (please state):" ~ "Another sexual orientation",
+      as.character(sexual_orientation_id) == "Asexual" ~ "Another sexual orientation",
+      as.character(sexual_orientation_id) == "Questioning or unsure" ~ "Another sexual orientation",
+      TRUE ~ NA_character_
+    )) %>%
+    mutate(ed_school_now_hsged = case_when(
+      as.character(education_school_now_type) == "GED program" ~ 1,
+      as.character(education_school_now_type) == "High School" ~ 1,
+      as.character(education_school_now_type) != "High School" & as.character(education_school_now_type) != "GED program" & as.character(education_school_now) == "Yes" ~ 0,
+      TRUE ~ NA_real_
+    )) %>%
+    mutate(ed_school_now_posths = case_when(
+      as.character(education_school_now_type) == "College" ~ 1,
+      as.character(education_school_now_type) == "Vocational/trade school" ~ 1,
+      as.character(education_school_now_type) != "Vocational/trade school" & as.character(education_school_now_type) != "College" & as.character(education_school_now) == "Yes" ~ 0,
+      TRUE ~ NA_real_
+    )) %>%
+    mutate(work_job_ftorptortemp = case_when(
+      as.integer(income_30day_types_job_ft) == 1 ~ 1,
+      as.integer(income_30day_types_job_pt_fthrs) == 1 ~ 1,
+      as.integer(income_30day_types_job_pt_pthrs) == 1 ~ 1,
+      as.integer(income_30day_types_temp_work) == 1 ~ 1,
+      as.integer(income_30day_types_job_ft) == 0 & as.integer(income_30day_types_job_pt_fthrs) == 0 
+            & as.integer(income_30day_types_job_pt_pthrs) == 0 
+              & as.integer(income_30day_types_temp_work) == 0 ~ 0,
+      TRUE ~ NA_real_
+    )) %>%
+    mutate(workschool_any_now = case_when(
+      as.integer(work_job_ftorptortemp) == 1 ~ 1,
+      as.character(education_school_now) == "Yes" ~ 1,
+      as.integer(work_job_ftorptortemp) == 0 & as.character(education_school_now) == "No" ~ 0,
+      TRUE ~ NA_real_
+    )) %>%
+    mutate_at(vars(one_of(hes_recode_vars)),funs(fct_rev(.))) %>%
+    mutate(hes_rs_1_satisfy_housing = case_when(
+      as.integer(hes_rs_1_satisfy_housing) == 1 ~ 1.0,
+      as.integer(hes_rs_1_satisfy_housing) == 2 ~ 1.5,
+      as.integer(hes_rs_1_satisfy_housing) == 3 ~ 2.0,
+      as.integer(hes_rs_1_satisfy_housing) == 4 ~ 2.5,
+      as.integer(hes_rs_1_satisfy_housing) == 5 ~ 3.0,
+      TRUE ~ NA_real_
+    )) %>%
+    mutate(hes_rs_2_satisfy_neighborhood = case_when(
+      as.integer(hes_rs_2_satisfy_neighborhood) == 1 ~ 1.0,
+      as.integer(hes_rs_2_satisfy_neighborhood) == 2 ~ 1.5,
+      as.integer(hes_rs_2_satisfy_neighborhood) == 3 ~ 2.0,
+      as.integer(hes_rs_2_satisfy_neighborhood) == 4 ~ 2.5,
+      as.integer(hes_rs_2_satisfy_neighborhood) == 5 ~ 3.0,
+      TRUE ~ NA_real_
+    )) %>%
+    mutate(hes_sub_rs_satisfy = as.integer(hes_rs_1_satisfy_housing) + as.integer(hes_rs_2_satisfy_neighborhood),
+           hes_sub_rs_compare = as.integer(hes_rs_3_compare_prev_livsit) + as.integer(hes_rs_4_compare_prev_nhood),
+           hes_sub_rs_housing = as.integer(hes_rs_1_satisfy_housing) + as.integer(hes_rs_3_compare_prev_livsit),
+           hes_sub_rs_nbrhood = as.integer(hes_rs_2_satisfy_neighborhood) + as.integer(hes_rs_4_compare_prev_nhood),
+           hes_score_rs_4item = as.integer(hes_rs_1_satisfy_housing) + as.integer(hes_rs_3_compare_prev_livsit) + 
+             as.integer(hes_rs_2_satisfy_neighborhood) + as.integer(hes_rs_4_compare_prev_nhood)) %>%
+    mutate(hes_score_pq = rowSums(map_dfr(select(.,starts_with("hes_pq")),as.integer)),
+         #  hes_score_nsc = rowSums(map_dfr(select(demo_changes,starts_with("hes_nsc"),-hes_nsc_13_samerace_howmany),as.integer)),
+           hes_score_nq = rowSums(map_dfr(select(.,starts_with("hes_nq")),as.integer)),
+           hes_score_s = rowSums(map_dfr(select(.,starts_with("hes_s_")),as.integer)),
+           hes_score_n = rowSums(map_dfr(select(.,starts_with("hes_n_")),as.integer)),
+           hes_score_ll = rowSums(map_dfr(select(.,starts_with("hes_ll_")),as.integer))) %>%
+           #hes_score_rm = rowSums(map_dfr(select(demo_changes,starts_with("hes_rm"),-starts_with("hes_rm_6"),
+            #                                     -starts_with("hes_rm_1"),-starts_with("hes_rm_2"),
+             #                                    -starts_with("hes_rm_3"),-starts_with("hes_rm_4"),
+              #                                   -starts_with("hes_rm_5")),as.integer))) %>%
+    mutate(lifetimehmls_di = ifelse(as.integer(homeless_duration_lifetime) < 6,0,
+                                    ifelse(as.integer(homeless_duration_lifetime) > 5,1,NA_integer_))) %>%
+    mutate(housed_duration_collapse = case_when(
+      as.integer(housed_duration_currentprogram) < 3 ~ "3 months or less",
+      as.integer(housed_duration_currentprogram) == 3 ~ "4-12 months",
+      as.integer(housed_duration_currentprogram) == 4 ~ "4-12 months",
+      as.integer(housed_duration_currentprogram) == 5 ~ "4-12 months",
+      as.integer(housed_duration_currentprogram) == 6 ~ "1-2 years",
+      as.integer(housed_duration_currentprogram) > 6 ~ "3 or more years",
+      TRUE ~ NA_character_
+    ), housed_duration_collapse = factor_keep_rename(housed_duration_collapse, level_vector = c("3 months or less",
+                                                                                                "4-12 months",
+                                                                                                "1-2 years",
+                                                                                                "3 or more years"))) %>%
+    mutate(housed_model = case_when(
+      as.integer(living_model) == 2 ~ "supportive housing",
+      as.integer(living_model) == 3 ~ "TLP",
+      TRUE ~ NA_character_
+    ), housed_model = factor_keep_rename(housed_model, level_vector = c("supportive housing","TLP")),
+    housed_psh = as.integer(as.integer(housed_model) == 1),
+    housed_tlp = as.integer(as.integer(housed_model) == 2)) %>%
+    copy_labels(select(tidy_baseline,-pid)) %>%
+    copy_labels(select(tidy_followup,-pid)) %>%
+    rename(lifetimehmls = homeless_duration_lifetime) %>%
+    select(-sni_bl_suever_nitrous_a1,-sni_bl_suever_nitrous_a2,-sni_bl_suever_nitrous_a3,
+           -sni_bl_suever_nitrous_a4,-sni_bl_suever_nitrous_a5,-sni_bl_suever_nitrous_a0) %>%
+    select(-race_demo,-race_min_demo,-race_single,-starts_with("race_birace_"),-hispanic_latinx)
+
+  write_dta(demo_changes,paste0(main_export_filepath,"/lml_personlevel.dta"))
+  return(demo_changes)
 }
 
-tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
+other_text_adapter <- function(tidy_data, bl_or_v2q){
+  var_split_stub_rename <- function(input_data,varname_stub, return_all_data = FALSE){
+    return_col <- input_data %>%
+      select(ends_with(varname_stub)) %>%
+      cSplit_e(varname_stub,type = "character", fill = 0, sep = ",") %>%
+      select(-ends_with(varname_stub)) %>%
+      rename_all(funs(str_replace(.,paste0(varname_stub,"_"),"")))
+    return_data <- input_data %>%
+      select(-ends_with(varname_stub)) %>%
+      bind_cols(return_col)
+    if(return_all_data){
+      return(return_data)
+    } else{
+      return(return_col)
+    }
+  }
+  
+  triple_mutate <- function(tidy_data,pidval,var1,var2,var3,val1 = 1, val2 = NA, val3 = 0){
+    if(length(pidval)==1){
+      return_data <- tidy_data %>%
+        mutate_at(var1,funs(ifelse(pid == pidval,val1,.))) %>%
+        mutate_at(var2,funs(ifelse(pid == pidval,val2,.))) %>%
+        mutate_at(var3,funs(ifelse(pid == pidval,val3,.))) 
+    } else {
+      return_data <- tidy_data
+      for(i in pidval){
+        return_data <- return_data %>%
+          mutate_at(var1,funs(ifelse(pid == i,val1,.))) %>%
+          mutate_at(var2,funs(ifelse(pid == i,val2,.))) %>%
+          mutate_at(var3,funs(ifelse(pid == i,val3,.))) 
+      }
+    }
+    
+    return(return_data)
+  }
+  
+  mutate_and_refactor <- function(tidy_data,pidval,var1,var2,val1,val2 = NA,var_levels){
+    if(length(pidval)==1){
+      return_data <- tidy_data %>%
+        mutate_at(var1,funs(ifelse(pid == pidval,as.character(val1),as.character(.)))) %>%
+        mutate_at(var2,funs(ifelse(pid == pidval,val2,.))) %>%
+        mutate_at(var1, funs(factor_keep_rename(.,level_vector = var_levels)))
+    } else {
+      return_data <- tidy_data
+      for(i in pidval){
+        return_data <- return_data %>%
+          mutate_at(var1,funs(ifelse(pid == i,as.character(val1),as.character(.)))) %>%
+          mutate_at(var2,funs(ifelse(pid == i,val2,.))) %>%
+          mutate_at(var1, funs(factor_keep_rename(.,level_vector = var_levels)))
+      }
+    }
+    return(return_data)
+  }
+  
+  
+  if(bl_or_v2q == "bl"){
+    levels_placeslived_h_main_prehoused <- append(levels(tidy_data$placeslived_h_main_prehoused),"Sober living facility")
+    govtbenefit_vector <- c(2056,2061,2064,2066,2074,2081,2091,1139,2095,2112,
+                            2113,2041,1131,2049,2050,2031,1129,1083,1089,1099,
+                            1107,1077,1125,1124,1061,2016,1048,1031,1054,1051,
+                            1050,2001,1002,1004)
+    healthcarenone_vector <- c(2071,2098,2019,2032,1066,1072,1105,1111,1117,1060,1016,1025)
+    
+    #levels_rxmisuse_last_use <- levels(tidy_data$rxmisuse_last_use)
+    #levels_hiv_neg_lasttest_where
+    
+    return_data <- tidy_data %>%
+      triple_mutate(2014,"prep_nottaking_barrier_lowrisk","prep_nottaking_barrier_other_txt","prep_nottaking_barrier_other") %>%
+      triple_mutate(1106,"gender_id_gqnc_selected","gender_id_other_text","gender_id_other_selected") %>%
+      triple_mutate(1112,"gender_id_gqnc_selected","gender_id_other_text","gender_id_other_selected") %>%
+      triple_mutate(2062,"homeless_causes_famhmls_unstable","homeless_causes_other_text","homeless_causes_other_selected") %>%
+      triple_mutate(2072,"homeless_causes_famhmls_unstable","homeless_causes_other_text","homeless_causes_other_selected") %>%
+      triple_mutate(2083,"homeless_causes_kickout_famhome","homeless_causes_other_text","homeless_causes_other_selected") %>%
+      triple_mutate(2130,"homeless_causes_movedhere_nohome","homeless_causes_other_text","homeless_causes_other_selected") %>%
+      triple_mutate(1085,"homeless_causes_couldnt_pay_rent","homeless_causes_other_text","homeless_causes_other_selected") %>%
+      triple_mutate(2125,"homeless_causes_couldnt_pay_rent","homeless_causes_other_text","homeless_causes_other_selected") %>%
+      triple_mutate(2006,"homeless_causes_ranaway_famhome","homeless_causes_other_text","homeless_causes_other_selected") %>%
+      triple_mutate(2084,"placeslived_sincehmls_street","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      triple_mutate(1141,"placeslived_sincehmls_vehicmetro","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      triple_mutate(1130,"placeslived_sincehmls_squat","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      triple_mutate(2059,"placeslived_sincehmls_street","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      triple_mutate(1067,"placeslived_sincehmls_street","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      triple_mutate(1088,"placeslived_sincehmls_street","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      triple_mutate(1022,"placeslived_sincehmls_vehicmetro","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      triple_mutate(2084,"placeslived_sincehmls_vehicmetro","placeslived_sincehmls_other_text","placeslived_sincehmls_other") %>%
+      mutate_and_refactor(1140,"placeslived_h_main_prehoused","placeslived_h_main_prehousedtext","Abandoned building or squat",NA,levels_placeslived_h_main_prehoused) %>%
+      mutate_and_refactor(1126,"placeslived_h_main_prehoused","placeslived_h_main_prehousedtext","Sober living facility",NA,levels_placeslived_h_main_prehoused) %>%
+      mutate_and_refactor(1008,"placeslived_h_main_prehoused","placeslived_h_main_prehousedtext","Family home",NA,levels_placeslived_h_main_prehoused) %>%
+      mutate_and_refactor(1048,"placeslived_h_main_prehoused","placeslived_h_main_prehousedtext","Street, park, beach, or outside",NA,levels_placeslived_h_main_prehoused) %>%
+      triple_mutate(2084,"placeslived_uh_3mo_street","placeslived_uh_3mo_other_text","placeslived_uh_3mo_other") %>%
+      triple_mutate(2039,"placeslived_uh_3mo_street","placeslived_uh_3mo_other_text","placeslived_uh_3mo_other") %>%
+      triple_mutate(2059,"placeslived_uh_3mo_street","placeslived_uh_3mo_other_text","placeslived_uh_3mo_other") %>%
+      triple_mutate(2098,"dx_chronic_none_selected","dx_chronic_other_text","dx_chronic_other_selected") %>%
+      triple_mutate(2124,"dx_chronic_none_selected","dx_chronic_other_text","dx_chronic_other_selected") %>%
+      triple_mutate(2026,"dx_chronic_kidney","dx_chronic_other_text","dx_chronic_other_selected") %>%
+      triple_mutate(1129,"dx_chronic_cirrhosis","dx_chronic_other_text","dx_chronic_other_selected") %>%
+      triple_mutate(1101,"dx_chronic_cardiovascular","dx_chronic_other_text","dx_chronic_other_selected") %>%
+      triple_mutate(1016,"dx_chronic_respiratory","dx_chronic_other_text","dx_chronic_other_selected") %>%
+      triple_mutate(1002,"dx_chronic_none_selected","dx_chronic_other_text","dx_chronic_other_selected") %>%
+      triple_mutate(1140,"sti_posever_none","sti_posever_other_text","sti_posever_other_selected") %>%
+      triple_mutate(2123,"sti_posever_none","sti_posever_other_text","sti_posever_other_selected") %>%
+      triple_mutate(1119,"sti_posever_none","sti_posever_other_text","sti_posever_other_selected") %>%
+      triple_mutate(1005,"sti_posever_none","sti_posever_other_text","sti_posever_other_selected") %>%
+      triple_mutate(2080,"prep_where_learned_ad","prep_where_learned_other_text","prep_where_learned_other") %>%
+      mutate(otherdrug_ever_text = ifelse(pid == 2048,NA,otherdrug_ever_text),
+             otherdrug_last_use = ifelse(pid == 2048,NA,otherdrug_last_use),
+             otherdrug_ever_selected = ifelse(pid == 2048,0,otherdrug_ever_selected),
+             rxmisuse_ever = ifelse(pid == 2048,1,rxmisuse_ever),
+             rxmisuse_last_use = ifelse(pid == 2048,"More than 3 months ago",rxmisuse_last_use)
+             ) %>%
+      triple_mutate(1025,"otherdrug_30day_roa_oral","otherdrug_30day_roa_other_text","otherdrug_30day_roa_other") %>%
+      triple_mutate(1106,"tobacco_30day_types_smoked","tobacco_30day_types_other_text","tobacco_30day_types_other") %>%
+      triple_mutate(2014,"tobacco_30day_types_smoked","tobacco_30day_types_other_text","tobacco_30day_types_other") %>%
+      triple_mutate(2014,"tobacco_30day_types_vaped","tobacco_30day_types_other_text","tobacco_30day_types_other") %>%
+      triple_mutate(1077,"tobacco_30day_types_smoked","tobacco_30day_types_other_text","tobacco_30day_types_other") %>%
+      triple_mutate(2035,"marijuana_30day_type_plant","marijuana_30day_type_other_text","marijuana_30day_type_other") %>%
+      triple_mutate(1106,"tech_access_where_borrow_friends","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      triple_mutate(2100,"tech_access_where_borrow_friends","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      triple_mutate(2117,"tech_access_where_work","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      triple_mutate(2021,"tech_access_where_borrow_friends","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      triple_mutate(1071,"tech_access_where_borrow_friends","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      triple_mutate(1099,"tech_access_where_place_of_stay","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      triple_mutate(1021,"tech_access_where_place_of_stay","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      triple_mutate(1027,"tech_access_where_family","tech_access_where_other_text","tech_access_where_other_selected") %>%
+      mutate(phone_paybill_govtbenefit = ifelse(!is.na(phone_paybill_friend),0,NA)) %>%
+      triple_mutate(govtbenefit_vector,"phone_paybill_govtbenefit","phone_paybill_other_text","phone_paybill_other") %>%
+      mutate(phone_uses_games = ifelse(!is.na(phone_uses_textcall_family),0,NA)) %>%
+      triple_mutate(2033,"phone_uses_textcall_family","phone_uses_other_text","phone_uses_other_selected") %>%
+      triple_mutate(1049,"phone_uses_games","phone_uses_other_text","phone_uses_other_selected") %>%
+      triple_mutate(1037,"phone_uses_games","phone_uses_other_text","phone_uses_other_selected") %>%
+      triple_mutate(2004,"phone_uses_internet","phone_uses_other_text","phone_uses_other_selected") %>%
+      triple_mutate(2021,"phone_benefits_intouch_family","phone_benefits_other_text","phone_benefits_other_selected") %>%
+      triple_mutate(1021,"gang_affiliate_none","phone_benefits_other_text","phone_benefits_other_selected") %>%
+      triple_mutate(2004,"gang_affiliate_none","gang_affiliate_other_text","gang_affiliate_other_selected") %>%
+      triple_mutate(2066,"mse_activities_ever_2_jobtrain","mse_activities_ever_10_other_txt","mse_activities_ever_10_other") %>%
+      triple_mutate(1106,"mse_activities_ever_5_art_music","mse_activities_ever_10_other_txt","mse_activities_ever_10_other") %>%
+      triple_mutate(2030,"mse_activities_ever_8_counsl_grp","mse_activities_ever_10_other_txt","mse_activities_ever_10_other") %>%
+      triple_mutate(1129,"mse_activities_ever_8_counsl_grp","mse_activities_ever_10_other_txt","mse_activities_ever_10_other") %>%
+      triple_mutate(2059,"mse_activities_ever_5_art_music","mse_activities_ever_10_other_txt","mse_activities_ever_10_other") %>%
+      triple_mutate(1084,"mse_activities_ever_0_none","mse_activities_ever_10_other_txt","mse_activities_ever_10_other") %>%
+      triple_mutate(2004,"mse_activities_ever_8_counsl_grp","mse_activities_ever_10_other_txt","mse_activities_ever_10_other") %>%
+      triple_mutate(healthcarenone_vector,"healthcare_access_needs_none","healthcare_access_needs_othertxt","healthcare_access_needs_other") %>%
+      mutate(healthcare_access_needs_mental = ifelse(!is.na(healthcare_access_needs_primary),0,NA)) %>%
+      triple_mutate(2074,"healthcare_access_needs_primary","healthcare_access_needs_othertxt","healthcare_access_needs_other") %>%
+      triple_mutate(2077,"healthcare_access_needs_sexrepro","healthcare_access_needs_othertxt","healthcare_access_needs_other") %>%
+      triple_mutate(2013,"healthcare_access_needs_mental","healthcare_access_needs_othertxt","healthcare_access_needs_other") %>%
+      triple_mutate(2026,"healthcare_access_needs_vision","healthcare_access_needs_othertxt","healthcare_access_needs_other") %>%
+      triple_mutate(1116,"healthcare_access_needs_mental","healthcare_access_needs_othertxt","healthcare_access_needs_other") %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 2117,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 2117,"(Other) Plasma center",hiv_neg_lasttest_where)
+      ) %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 2026,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 2026,"Jail or prison",hiv_neg_lasttest_where)
+      ) %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 2030,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 2030,"(Other) Plasma center",hiv_neg_lasttest_where)
+      ) %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 1130,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 1130,"Jail or prison",hiv_neg_lasttest_where)
+      ) %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 1078,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 1078,"Community clinic",hiv_neg_lasttest_where)
+      ) %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 1120,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 1120,"Jail or prison",hiv_neg_lasttest_where)
+      ) %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 1032,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 1032,"Community clinic",hiv_neg_lasttest_where)
+      ) %>%
+      mutate(hiv_neg_lasttest_where_txt = ifelse(pid == 2006,NA,hiv_neg_lasttest_where_txt),
+             hiv_neg_lasttest_where = ifelse(pid == 2006,"(Other) Plasma center",hiv_neg_lasttest_where)
+      )
+  } else {
+    sheltermate_vector <- c(2049,2050,2074,2083,2089,2092,2095,2108,2128,2030)
+    levels_hes_uh_rm_3_roommate_rel_type <- append(levels(tidy_data$hes_uh_rm_3_roommate_rel_type),"Sheltermate")
+    
+    return_data <- tidy_data %>%
+      mutate_and_refactor(sheltermate_vector,"hes_uh_rm_3_roommate_rel_type","hes_uh_rm_3_roommate_relothertxt",
+                          "Sheltermate",NA,levels_hes_uh_rm_3_roommate_rel_type)
+  }
+  
+  return_and_relabel <- return_data %>%
+    copy_labels(tidy_data)
+  
+  return(return_and_relabel)
+}
+
+tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q, main_export_filepath){
   new_data <- copy(clean_baseline_data)
   r_tidy_names <- fread(paste0(main_filepath,"/r_tidy.csv")) %>%
     filter(source == bl_or_v2q) %>%
@@ -212,14 +580,64 @@ tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
                                                       education_highest_grade_complete == "Some graduate school (no degree)" | education_highest_grade_complete == "Bachelor's (BA/BS) degree" | 
                                                       education_highest_grade_complete == "Vocational/trade school degree" ~ "Post high school education",
                                                     TRUE ~ NA_character_),
-             education_highest_collapse = factor_keep_rename(education_highest_collapse, level_vector = c("Less than high school","High school or GED","Post high school education")))
+             education_highest_collapse = factor_keep_rename(education_highest_collapse, level_vector = c("Less than high school","High school or GED","Post high school education"))) %>%
+      other_text_adapter(bl_or_v2q) %>%
+      mutate_at(vars(prep_currently_taking, prep_ever_rx, prep_alter_taking,
+                     hcv_positive_current_tx, hiv_neg_lasttest_post_counsel,
+                     hiv_neg_lasttest_got_result, hiv_pos_meds_now, hiv_pos_tx_current,
+                     hiv_pos_posttest_counsel, hiv_pos_ever, sex_3mo_forced_attempt,
+                     sex_3mo_forced_sex, sex_3mo_exchange_sex_forced, sex_3mo_exchange_sex,
+                     sex_3mo_no_hiv_talk_before, justice_involve_juvenile_ageout),funs(
+                       factor_keep_rename_yn(.))) %>%
+      mutate_at(vars(sex_3mo_planb_use, sex_3mo_fam_app_use, mse_perceived_access_treatment,
+                     mse_perceived_access_shelters, mse_perceived_access_dropins,
+                     mse_know_housing_options, mse_provider_talk_systemssupport,
+                     mse_provider_positive_relship),funs(factor_keep_rename(., level_vector = c(
+                       "No","Yes","Not sure"
+                     )))) %>%
+      mutate_at(vars(race_min_demo, demo_sex_gender_min, demo_sex_min, demo_gendercis,hispanic_latinx),
+                funs(factor_keep_rename(., level_vector = c(
+                       "No","Yes","Unknown"
+                     )))) %>%
+      mutate_at(vars(race_demo, race_eth_combine, hiv_neg_lasttest_where,
+                     sex_3mo_partner_biosex, sexual_orientation_id, sex_at_birth,
+                     race_single,hiv_pos_tested_where),funs(factor_keep_rename(.))) %>%
+      mutate_at(vars(children_current_livewith, children_ever_total, pregnancies_ever_unplanned),
+                funs(factor_keep_rename(., level_vector = c(
+                  "0","1","2","3","4 or more"
+                )))) %>%
+      mutate_at(vars(pregnancies_ever_total),
+                funs(factor_keep_rename(., level_vector = c(
+                  "0","1","2","3","4 or more times"
+                )))) %>%
+      mutate_at(vars(sex_3mo_intoxicated_freq,sex_3mo_condom_freq), funs(factor_keep_rename(., level_vector = c(
+        "Never","Less than half the time","Half of the time","More than half the time","Every time")))) 
+      
+      
     
-    qual_data <- new_data %>%
+    
+    
+    
+    
+    
+    qa_check_text <- new_data %>%
       mutate(pid = as.character(pid)) %>%
-      select_if(is.character) %>%
-      filter_all(any_vars(!is.na(.)))
-    write_dta(qual_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline_qualitative.dta")
+      select(pid,starts_with("race"), starts_with("prep_nottaking_barrier_"),starts_with("prep_nottaking_barrier_"),
+             starts_with("race_birace_eth_"),starts_with("gender_id_"),
+             starts_with("homeless_causes_"),starts_with("placeslived_sincehmls_"),
+             starts_with("placeslived_h_main_"),starts_with("placeslived_uh_3mo_"),
+             starts_with("dx_chronic_"),starts_with("sti_posever_"),
+             starts_with("prep_where_learned_"),starts_with("otherdrug_"),
+             starts_with("tobacco_30day_types_"),starts_with("marijuana_30day_type_"),
+             starts_with("marijuana_30day_roa_"),starts_with("tech_access_where_"),
+             starts_with("phone_paybill_"),starts_with("phone_uses_"),
+             starts_with("phone_benefits_"),starts_with("gang_affiliate_"),
+             starts_with("mse_activities_ever_10_"),starts_with("healthcare_access_needs_"),
+             starts_with("sex_3mo_partner_gender_"),starts_with("sex_3mo_contraceptypes_"),
+             starts_with("hiv_neg_lasttest_"),starts_with("prep_nottaking_barrier_"))
     
+    write_csv(qa_check_text,paste(main_export_filepath,"baseline_qa_textdata.csv",sep = "/"))
+
     new_data <- new_data %>%
       select(-ends_with("_text")) %>%
       mutate(tobacco_last_use2 = as_character(tobacco_last_use),
@@ -289,23 +707,44 @@ tidy_name_adapter <- function(main_filepath, clean_baseline_data, bl_or_v2q){
       mutate_at(vars(synthetic_mj_30day_freq), funs(carry_zero_forward(synthetic_mj_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
       mutate(steroid_last_use = carry_factor_forward(steroid_ever, steroid_last_use, parent_value = 0, new_value = "Never",
                                                           new_label_pair = c("Within the past 30 days","Between 1-3 months ago","More than 3 months ago","Never"))) %>%
-      mutate_at(vars(steroid_30day_freq), funs(carry_zero_forward(steroid_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0)))
-    
-       
-    
-    write_dta(new_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline_tidy.dta")
-  } else {
-    new_data <- new_data %>%
-      filter(pid != "1115")
+      mutate_at(vars(steroid_30day_freq), funs(carry_zero_forward(steroid_last_use, ., use_var = 1, flip_sign = TRUE, replace_var = 0))) %>%
+      select(-qualtrics_response_id_bl)
     
     qual_data <- new_data %>%
       mutate(pid = as.character(pid)) %>%
       select_if(is.character) %>%
-      filter_all(any_vars(!is.na(.)))
-    write_dta(qual_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup_qualitative.dta")
+      filter_all(any_vars(!is.na(.))) %>%
+      select(-starts_with("sni_"))
+    write_dta(qual_data,paste(main_export_filepath,"baseline_qualitative.dta",sep = "/"))
+       
+    
+    write_dta(new_data,paste(main_export_filepath,"baseline_tidy.dta",sep = "/"))
+  } else {
+    hold_names <- new_data
+    
+    new_data <- new_data %>%
+      filter(pid != "1115") %>%
+      copy_labels(hold_names) %>%
+      other_text_adapter(bl_or_v2q) %>%
+      select(-qualtrics_response_id_v2q)
+      
+    
+    qual_data <- new_data %>%
+      mutate(pid = as.character(pid)) %>%
+      select_if(is.character) %>%
+      filter_all(any_vars(!is.na(.))) %>%
+      select(-starts_with("sni_"))
+    
+    write_dta(qual_data,paste(main_export_filepath,"followup_qualitative.dta",sep = "/"))
+    
+    qa_check_text <- new_data %>%
+      mutate(pid = as.character(pid)) %>%
+      select(pid,starts_with("exit_typicalweek_"), starts_with("hes_uh_rm_3_roommate_"))
+    
+    write_csv(qa_check_text,paste(main_export_filepath,"followup_qa_textdata.csv",sep = "/"))
     
     
-    write_dta(new_data,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup_tidy.dta")
+    write_dta(new_data,paste(main_export_filepath,"followup_tidy.dta",sep = "/"))
   }
   
   return(new_data)
@@ -362,12 +801,25 @@ clean_enrollment <- function(enrollment_dirname, enrollment_filename = "enrollme
            housing_agency, housing_building_name,
            living_model, living_situation_scattered,living_situation_unhoused,unhoused_program,
            starts_with("dates_"),starts_with("enroll_"),starts_with("phone_")) %>%
-    filter(pid != "1115")
+    filter(pid != "1115") %>%
+    filter(pid != "1092") %>%
+    filter(pid != "1050") %>%
+    filter(pid != "1051") %>%
+    filter(pid != "1054") %>%
+    filter(pid != "1019") %>%
+    filter(pid != "1061") %>%
+    filter(pid != "1007") %>%
+    filter(pid != "1038") %>%
+    filter(pid != "1135") %>%
+    filter(pid != "2024") %>%
+    filter(pid != "2040") %>%
+    filter(pid != "2008") %>%
+    filter(pid != "2054")
     
-  write_dta(fixed_enroll,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/enrollment.dta")
+  write_dta(fixed_enroll,paste(main_export_filepath,"enrollment.dta",sep = "/"))
 }
 
-clean_followup <- function(v2q_data){
+clean_followup <- function(v2q_data, main_export_filepath){
   gad_vars <- paste0(rep_varnames("gad7_",1:7),"_v2")
   rm_vars <- append(rep_varnames("hes_rm_",7:15),rep_varnames("hes_uh_rm_",7:15))
   n_vars <- append(rep_varnames("hes_n_",1:9),rep_varnames("hes_uh_n_",1:9))
@@ -436,10 +888,12 @@ clean_followup <- function(v2q_data){
                    hes_uh_rs_1,hes_uh_rs_2), funs(factor_keep_rename(., level_vector = c(
       "Very dissatisfied","Dissatisfied","Neither dissatisfied or satisfied","Satisfied","Very satisfied")))) %>%
     mutate_at(vars(starts_with("hes_pq_"),starts_with("hes_nes_"),starts_with("hes_uh_nes"),
-                   one_of(n_vars),one_of(nsc_vars),starts_with("hes_ll_"),
-                   starts_with("ei_agree_"))
-              , funs(factor_keep_rename(., level_vector = c(
-      "Strongly disagree","Disagree","Neither disagree nor agree","Agree","Strongly agree")))) %>%
+                   one_of(n_vars),one_of(nsc_vars),starts_with("hes_ll_"))
+              , funs(factor_keep_rename(tolower(.), level_vector = c(
+      "strongly disagree","disagree","neither disagree nor agree","agree","strongly agree")))) %>%
+    mutate_at(vars(starts_with("ei_agree_"))
+              , funs(factor_keep_rename(tolower(.), level_vector = c(
+                "strongly disagree","disagree","neither agree nor disagree","agree","strongly agree")))) %>%
     mutate_at(vars(starts_with("casey_")), funs(factor_keep_rename(., level_vector = c("No","Mostly no",
                                                                                                 "Somewhat",
                                                                                                 "Mostly yes",
@@ -457,6 +911,8 @@ clean_followup <- function(v2q_data){
     mutate_at(vars(ei_typweek,hes_d_5), funs(factor_keep_rename(.))) %>%
     mutate_at(vars(hes_uh_c_na, hes_d_6), funs(factor_keep_rename(., level_vector = c("No","Yes")))) %>%
     mutate_at(vars(hes_d_1,hes_d_2), funs(factor_keep_rename(., level_vector = c("1","2","3","4","5 or more")))) %>%
+    mutate_at(vars(hes_d_3), funs(gsub("[^(1-9)]","",.))) %>%
+    mutate_at(vars(hes_d_3,hes_rs_6_1,hes_uh_rs_6_1), funs(numeric_keep_rename(.))) %>%
     mutate_at(vars(hes_d_4), funs(factor_keep_rename(., level_vector = c("0","1","2","3","4","5 or more")))) %>%
     mutate_at(vars(hes_d_7), funs(factor_keep_rename(., level_vector = c("None at all",
                                                                          "A little",
@@ -624,23 +1080,23 @@ clean_followup <- function(v2q_data){
                                                      -starts_with("exit_"),-starts_with("smasi_"),-starts_with("depression_"),
                                                      -starts_with("anxiety_"),-starts_with("cls_"),-starts_with("ders_"))))
   print(incomplete_name_out)
-  cat("List of variable names that are currently in progress", incomplete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/v2q_incomplete_varnames.txt", sep="\n")
+  cat("List of variable names that are currently in progress", incomplete_name_out, file=paste(main_export_filepath,"v2q_incomplete_varnames.txt",sep = "/"), sep="\n")
   
   complete_name_out <- capture.output(names(select(filtered_followup,pid,starts_with("followup_"),starts_with("hes_"),
                                                    starts_with("exit_"),starts_with("smasi_"),starts_with("depression_"),
                                                    starts_with("anxiety_"),starts_with("cls_"),starts_with("ders_"))))
   complete_name_out
-  cat("List of variable names that are complete + SNI", complete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/v2q_complete_varnames.txt", sep="\n")
+  cat("List of variable names that are complete + SNI", complete_name_out, file=paste(main_export_filepath,"v2q_complete_varnames.txt",sep = "/"), sep="\n")
   
   completedsofar <- select(filtered_followup,pid,starts_with("followup_"),starts_with("hes_"),starts_with("exit_"),
                            starts_with("smasi_"),starts_with("depression_"),starts_with("anxiety_"),
                            starts_with("cls_"),starts_with("ders_"))
-  write_dta(completedsofar,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/followup.dta")
+  write_dta(completedsofar,paste(main_export_filepath,"followup.dta",sep = "/"))
   
   return(filtered_followup)
 }
 
-clean_baseline <- function(baseline_data){
+clean_baseline <- function(baseline_data, main_export_filepath){
   drug_30 <- c("alc_30","marj_30","meth_30","mdma_30","synthmj_30",
                "halluc_30","pdm_30","heroin_30","cocaine_30","crack_30",
                "inhal_30","steroid_30","nitrous_30","keta_30","pcp_30",
@@ -719,7 +1175,7 @@ clean_baseline <- function(baseline_data){
                                            "Post HS Education",NA_character_)))) %>%
     mutate_at(vars(starts_with("ucla_ptsd_")), funs(factor_keep_rename_yn(.))) %>%
     mutate_at(vars(starts_with("mh_dx_")), funs(factor_keep_rename_yn(.))) %>%
-    mutate_at(vars(ptsd_1,ptsd_2,ptsd_3,ptsd_4), funs(factor_keep_rename_yn(.))) %>%
+    mutate_at(vars(ptsd_1,ptsd_2,ptsd_3,ptsd_4,inschool), funs(factor_keep_rename_yn(.))) %>%
     mutate_at(vars(fc_ever,jjs_ever,arrest_ever,jail_ever), funs(factor_keep_rename_yn(.))) %>%
     mutate_at(vars(romrel_marr), funs(factor_keep_rename(., level_vector = c("No, not currently married","Yes, to a woman","Yes, to a man")))) %>%
     mutate_at(vars(romrel_curr), funs(factor_keep_rename(., level_vector = c("No","Yes","I don't know")))) %>%
@@ -917,6 +1373,42 @@ clean_baseline <- function(baseline_data){
       "0 (I have never had vaginal or anal sex)","1","2-5","6-10","11-20","21-30","31 or more")))) %>%
     mutate_at(vars(lifesex_beh), funs(factor_keep_rename(., level_vector = c(
       "Women only","Both men and women","Men only","I've never had sex")))) %>%
+    mutate_at(vars(chlam_pos_last,gono_pos_last,syph_pos_last,herp_pos_last,
+                   hpv_pos_last,hepb_pos_last,other_pos_last),funs(factor_keep_rename(., level_vector = c(
+                     "Within the past 3 months","More than 3 months ago but less than 6 months ago",
+                     "More than 6 months ago")))) %>%
+    mutate_at(vars(sti_last),funs(factor_keep_rename(., level_vector = c(
+      "Within the past 3 months","More than 3 months ago but less than 6 months ago",
+      "More than 6 months ago","I have never been tested for an STI or STD")))) %>%
+    mutate_at(vars(hcv_status),funs(factor_keep_rename(., level_vector = c(
+      "No","Yes","I did not get my results")))) %>%
+    mutate_at(vars(prep_know),funs(factor_keep_rename(., level_vector = c(
+      "I have never heard of it","I have heard of it, but don't know what it is",
+      "I know a little bit about it","I know a lot about it")))) %>%
+    mutate_at(vars(prep_interest),funs(factor_keep_rename(., level_vector = c(
+      "Not interested","A little interested","Somewhat interested",
+      "Moderately interested","Very interested")))) %>%
+    mutate_at(vars(hcv_lasttest),funs(factor_keep_rename(., level_vector = c(
+      "Within the past 3 months","More than 3 months ago but less than 6 months ago",
+      "More than 6 months ago","I have never been tested for hepatitis C")))) %>%
+    mutate_at(vars(hivp_when),funs(factor_keep_rename(., level_vector = c(
+      "Within the past 3 months","More than 3 months ago but less than 6 months ago",
+      "More than 6 months but less than 1 year ago","More than 1 year ago")))) %>%
+    mutate_at(vars(hivn_lasttest),funs(factor_keep_rename(., level_vector = c(
+      "Within the past 3 months","More than 3 months ago but less than 6 months ago",
+      "More than 6 months but less than 1 year ago","More than 1 year ago","I have never been tested for HIV/AIDS")))) %>%
+    mutate_at(vars(inschool_type), funs(factor_keep_rename(., level_vector = c(
+      "GED program","High School","Vocational/trade school","College","Other (please specify)")))) %>%
+    mutate_at(vars(educ), funs(factor_keep_rename(., level_vector = c(
+      "No formal education","Kindergarten to 5th grade","6th grade to 8th grade","9th to 12th grade (no degree)",
+      "GED","High school diploma","Some vocational/trade school (no degree)","Vocational/trade school degree",
+      "Associates (AA) degree", "Bachelor's (BA/BS) degree", "Some graduate school (no degree)")))) %>%
+    mutate_at(vars(sexattr_formales), funs(factor_keep_rename(., level_vector = c(
+      "Only attracted to males?","Mostly attracted to males?","Equally attracted to females and males?",
+      "Mostly attracted to females?","Only attracted to females?","Not sure?")))) %>%
+    mutate_at(vars(`3mosex_partnum`), funs(factor_keep_rename(., level_vector = c(
+      "I have not had vaginal or anal sex with anyone in the past 3 months",
+      "1","2-5","6-10","11-20","21-30","31 or more")))) %>%
     bind_cols(birace_baseline(.)) %>%
     bind_cols(gender_baseline(.)) %>%
     bind_cols(romance_partners_gender_baseline(.)) %>%
@@ -1213,21 +1705,21 @@ clean_baseline <- function(baseline_data){
                -starts_with("scale"),-starts_with("history"),-starts_with("survey"),-starts_with("sni"),-starts_with("sleep"),
                -starts_with("healthcare"),-starts_with("tobacco_"),-starts_with("drugs_"),-starts_with("techuse_"))))
   print(incomplete_name_out)
-  cat("List of variable names that are currently in progress", incomplete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/incomplete_varnames.txt", sep="\n")
+  cat("List of variable names that are currently in progress", incomplete_name_out, file=paste(main_export_filepath,"incomplete_varnames.txt",sep = "/"), sep="\n")
   
   complete_name_out <- capture.output(names(select(filtered_baseline,pid,starts_with("demo"),starts_with("baseline"),starts_with("unhoused"),
                                                      starts_with("scale"),starts_with("history"),starts_with("survey"),starts_with("sni"),
                                                    starts_with("sleep"),starts_with("healthcare"),starts_with("tobacco_"),starts_with("drugs_"),
                                                    starts_with("techuse_"))))
   complete_name_out
-  cat("List of variable names that are complete + SNI", complete_name_out, file="/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/complete_varnames.txt", sep="\n")
+  cat("List of variable names that are complete + SNI", complete_name_out, file=paste(main_export_filepath,"complete_varnames.txt",sep = "/"), sep="\n")
   
   
   completedsofar <- select(filtered_baseline,pid,starts_with("demo"),starts_with("baseline"),starts_with("unhoused"),
                            starts_with("scale"),starts_with("history"),starts_with("survey"),starts_with("sni"),
                            starts_with("sleep"),starts_with("healthcare"),starts_with("tobacco_"),starts_with("drugs_"),
                            starts_with("techuse_"))
-  write_dta(completedsofar,"/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Person Level/Progress Reports/baseline.dta")
+  write_dta(completedsofar,paste(main_export_filepath,"baseline.dta",sep = "/"))
   
   return(filtered_baseline)
   # test <- select(filtered_baseline,pid,starts_with("survey_prep_"),starts_with("demo_"),
@@ -1241,7 +1733,9 @@ clean_baseline <- function(baseline_data){
 }
 
 followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v3_v2q_filepath,
-                                v4_v2q_filepath,v5_v2q_filepath,v6_v2q_filepath,v7_v2q_filepath){
+                                v4_v2q_filepath,v5_v2q_filepath,v6_v2q_filepath,v7_v2q_filepath,
+                                v2q_redcap_filepath = "exit scales_redcap.csv"){
+  redcap_append <- redcap_to_v1(main_filepath, v2q_redcap_filepath)
   v1_raw <- return_raw_baseline(main_filepath, v1_v2q_filepath) %>%
     filter(responseid != "R_OiLgOEXdq9zF0iJ" & exit_pid != "105" & exit_pid != "10100"
            & responseid != "R_1pyRsMTctbJuoK3" & responseid != "R_0NugAIF3VyvohKV"
@@ -1252,7 +1746,8 @@ followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v
            hes_date = ifelse(exit_pid == "1005","6/19/2017",hes_date)) %>%
     rename(v2q_pid = exit_pid,
            v2q_date = hes_date) %>%
-    mutate(v2q_version = "1")
+    mutate(v2q_version = "1") %>%
+    left_join(redcap_append, by = "v2q_pid")
   #v2_raw <- return_raw_baseline(main_filepath, v2_v2q_filepath)
   v3_raw <- return_raw_baseline(main_filepath, v3_v2q_filepath) %>%
     filter(responseid != "R_3eNrv9wgEEw1DfH" & responseid != "R_2X66FVl0NeOhixn") %>%
@@ -1265,6 +1760,7 @@ followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v
   
   v4_fix_1087 <- v4_raw %>%
     filter(v2q_pid == "1087") %>%
+    select_if(~sum(!is.na(.)) > 0) %>%
     summarize_all(funs(last(na.omit(.))))
   
   v4_fix <- v4_raw %>%
@@ -1297,6 +1793,7 @@ followup_fix_errors <- function(main_filepath, v1_v2q_filepath,v2_v2q_filepath,v
   
   v6_fix_1132 <- v6_raw %>%
     filter(v2q_pid == "1132") %>%
+    select_if(~sum(!is.na(.)) > 0) %>%
     summarize_all(funs(first(na.omit(.))))
   
   v6_fix <- v6_raw %>%
@@ -1671,6 +2168,7 @@ v1_fix_errors <- function(main_filepath,v1_filepath, keep_missing = FALSE) {
   v1_fix_3007 <- tibble(pid ="1007", sex = "Female", race = "I don't know", hisp = "I don't know")  # Fixing 1007 > 3007
   v1_fix_1004 <- v1_raw %>%
     filter(responseid == "R_72GUjPfXIWKYOlP" | responseid == "R_1o0ursi841wl4tT") %>%
+    select_if(~sum(!is.na(.)) > 0) %>%
     summarize_all(funs(first(na.omit(.)))) %>%
     mutate(dob = ifelse(pid == "1004","09/05/1994",dob))
   pre_bind_labels <- get_label(v1_raw)
@@ -1703,6 +2201,23 @@ v1_fix_errors <- function(main_filepath,v1_filepath, keep_missing = FALSE) {
       responseid != "R_OiLgOEXdq9zF0iJ" &
       responseid != "R_1myHhk3o8mAi0GY"
       ) %>%
+    mutate(
+      stress_scale_1 = ifelse(grepl("Finding enough food to eat",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_1),"None at all",stress_scale_1),
+      stress_scale_2 = ifelse(grepl("Getting along with friends",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_2),"None at all",stress_scale_2),
+      stress_scale_3 = ifelse(!is.na(stress_streets) & is.na(stress_scale_3),"None at all",stress_scale_3),
+      stress_scale_4 = ifelse(grepl("Being unable to find work",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_4),"None at all",stress_scale_4),
+      stress_scale_5 = ifelse(grepl("Being hit, kicked, or punched",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_5),"None at all",stress_scale_5),
+      stress_scale_6 = ifelse(grepl("Finding a place to sleep",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_6),"None at all",stress_scale_6),
+      stress_scale_7 = ifelse(grepl("Getting professional help for a health problem",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_7),"None at all",stress_scale_7),
+      stress_scale_8 = ifelse(!is.na(stress_streets) & is.na(stress_scale_8),"None at all",stress_scale_8),
+      stress_scale_9 = ifelse(grepl("Having a purpose for my life",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_9),"None at all",stress_scale_9),
+      stress_scale_10 = ifelse(grepl("Getting more education",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_10),"None at all",stress_scale_10),
+      stress_scale_11 = ifelse(grepl("Finding a place to take a bath or shower",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_11),"None at all",stress_scale_11),
+      stress_scale_12 = ifelse(grepl("Finding a place to wash my clothes",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_12),"None at all",stress_scale_12),
+      stress_scale_13 = ifelse(grepl("Finding other people to hang out with",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_13),"None at all",stress_scale_13),
+      stress_scale_14 = ifelse(!is.na(stress_streets) & is.na(stress_scale_14),"None at all",stress_scale_14),
+      stress_scale_15 = ifelse(grepl("Earning money",stress_streets) == FALSE & !is.na(stress_streets) & is.na(stress_scale_15),"None at all",stress_scale_15)
+    ) %>%
     bind_rows(v1_fix_1004) %>%
     bind_rows(v1_fix_3007) %>%
     set_label(unlist(pre_bind_labels)) %>%
@@ -1741,7 +2256,7 @@ v2_fix_errors <- function(main_filepath,v2_filepath, keep_missing = FALSE) {
       race = ifelse(pid == "2009", "Bi/Multi-racial or Ethnic", race),
       pid = ifelse(responseid == "R_1GUHNGNcf1AYuJY", "2017", pid),
       site_housed = ifelse(pid == "2017","Jovenes Emergency Shelter",site_housed),
-      pid = ifelse(responseid == "R_pFaeDxOuzvRPFkZ", "1025", pid),
+      pid = ifelse(responseid == "R_pFaeDxOuzvRPFkZ", "3025", pid),
       race = ifelse(pid == "3025", "I don't know", race),
       pid = ifelse(responseid == "R_2AQdJ7QXdBSRZDC", "1046", pid),
       pid = ifelse(responseid == "R_1exDzqYGNb34xQq", "2008", pid),
@@ -1750,6 +2265,8 @@ v2_fix_errors <- function(main_filepath,v2_filepath, keep_missing = FALSE) {
       pid = ifelse(pid == "2009","1199",pid),
     ) %>%
     filter(
+      responseid != "R_3dLBmeVaJN1KDsD" &
+      responseid != "R_1Q9lqUXMprXCHUH" &
       pid != "101" & 
       pid != "0" &
       !is.na(pid)
@@ -1875,9 +2392,11 @@ v6_fix_errors <- function(main_filepath,v6_filepath, keep_missing = FALSE) {
            sexori = ifelse(pid == "1135","Questioning or unsure",sexori),
            sutypes_use_ever = ifelse(pid == "2040","Alcohol,Marijuana,Meth,Ecstasy / MDMA / “Molly”,Hallucinogens/psychedelics (LSD/acid, “shrooms,” etc),Cocaine (powdered)",sutypes_use_ever),
            race = ifelse(pid == "2044","Bi/Multi-racial or Ethnic",race),
+           sexori = ifelse(pid == "2044","Heterosexual or straight",sexori),
            demo_racemin = ifelse(pid == "2044","Yes",demo_racemin),
            uh_livsit_curr = ifelse(pid == "2047","Adult emergency/temporary shelter (less than 30 days)",uh_livsit_curr),
-           sexori = ifelse(pid == "2048","Bisexual",sexori)
+           sexori = ifelse(pid == "2048","Bisexual",sexori),
+           
            ) %>%
     mutate(version = 6) %>%
     mutate(housed_yn = ifelse(as.integer(pid) < 2000 | (as.integer(pid) < 4000 & as.integer(pid) > 2999),"Yes","No"))
@@ -1899,6 +2418,7 @@ v7_fix_errors <- function(main_filepath,v7_filepath, keep_missing = FALSE) {
   
   v7_fix_2053 <- v7_raw %>%
     filter(pid == "2053") %>%
+    select_if(~sum(!is.na(.)) > 0) %>%
     summarize_all(funs(first(na.omit(.))))
   
   v7_fix <- v7_raw %>%
@@ -1923,7 +2443,19 @@ v7_fix_errors <- function(main_filepath,v7_filepath, keep_missing = FALSE) {
            uh_livsit_curr = ifelse(pid == "2068","Street, park, beach, or outside",uh_livsit_curr),
            uh_livsit_curr = ifelse(pid == "2084","Street, park, beach, or outside",uh_livsit_curr),
            race = ifelse(pid == "2066","I don't know",race),
-           demo_racemin = ifelse(pid == "2066","Yes",demo_racemin)) %>%
+           demo_racemin = ifelse(pid == "2066","Yes",demo_racemin),
+           birace = ifelse(pid == "2130","American Indian or Alaska Native,Black or African-American,White",birace),
+           race = ifelse(pid == "2130","Bi/Multi-racial or Ethnic",race),
+           sni_alter_ids_5 = ifelse(pid == "2079","Braids",sni_alter_ids_5),
+           sni_alter_ids_1 = ifelse(pid == "2130","Bryan1",sni_alter_ids_1),
+           sni_alter_ids_2 = ifelse(pid == "2130","V",sni_alter_ids_2),
+           sni_alter_ids_2 = ifelse(pid == "2099","Brian",sni_alter_ids_2),
+           sni_alter_ids_2 = ifelse(pid == "1141","Dad",sni_alter_ids_2),
+           sni_alter_ids_3 = ifelse(pid == "2130","Jeff",sni_alter_ids_3),
+           sni_alter_ids_3 = ifelse(pid == "2099","Annie",sni_alter_ids_3),
+           sni_alter_ids_4 = ifelse(pid == "2130","Ug",sni_alter_ids_4),
+           sni_alter_ids_5 = ifelse(pid == "2130","Bryan2",sni_alter_ids_5),
+           sni_alter_ids_5 = ifelse(pid == "2099","Mohammed",sni_alter_ids_5)) %>%
     bind_rows(v7_fix_2053) %>%
     set_label(unlist(pre_bind_labels)) %>%
     mutate(version = 7) %>%

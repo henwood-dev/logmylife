@@ -20,6 +20,31 @@ slice <- dplyr::slice
 #source("LML_Tidy.R", encoding = "UTF-8")
 #source("LML_Baseline.R", encoding = "UTF-8")
 
+map_velocity <-function(gps_data = NULL) {
+  gps_data <- gps
+  gps_data_valid <- gps_data[gps_time_valid == 1 & gps_accuracy_valid == 1]
+  gps_measure <- gps_data_valid[, lapply(list(latitude,longitude),first), by = list(file_id, measure_time)]
+  gps_measure[, V1lag := shift(V1), by = list(file_id)]
+  gps_measure[, V2lag := shift(V2), by = list(file_id)]
+  gps_measure[, measure_timelag := shift(measure_time), by = list(file_id)]
+  gps_measure[, distance := distHaversine(cbind(V2,V1),cbind(V2lag,V1lag))]
+  gps_measure[, timediff := as.integer(measure_time-measure_timelag)]
+  gps_measure[, velocitymph := (distance/timediff)*2.237]
+  gps_measure[, date := as_date(measure_time)]
+  gps_measure[velocitymph > 5, velocitymph := 5]
+  file_id_names <- unique(gps_measure$file_id)
+  for(fin in file_id_names){
+    date_names <- as.character(unique(gps_measure[file_id == fin]$date))
+    for(dn in date_names){
+      gps_id <- gps_measure[file_id == fin & date == dn]
+      dir.create(paste0("/Users/eldin/Downloads/GeoImages/",fin,"/"), showWarnings = FALSE)
+      ggplot(gps_id, aes(x = measure_time, y = velocitymph)) +
+        geom_point() +
+        ggsave(paste0("/Users/eldin/Downloads/GeoImages/",fin,"/",dn,".png"), width = 12, height = 6)
+    }
+  }
+}
+
 gps_geocode_address <- function(){
   site_addresses <- fread("/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/site_geocoding.csv")
   api_key <- names(fread("/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/api_key.txt"))
@@ -131,6 +156,96 @@ enhance_gps <- function(gps, new_enroll, housing_geo, day_level = FALSE){
   return(merge_day)
 }
 
+match_gps_ema <- function(ema_data = NULL, gps_data = NULL, multicore = TRUE, use_measured_time = TRUE) {
+
+  if(use_measured_time){
+    gps_dt <- gps_data %>%
+      #select(-ltime) %>%
+      distinct() %>%
+      rename(measuretime = rtime) %>%
+      rename(timestamp = ltime) %>%
+      mutate(date = as.Date(timestamp, origin = "1970-01-01", tz = "America/Los_Angeles")) %>%
+      rename(accuracy = unknown_1) %>%
+      rename(fulltime = timestamp) %>%
+      select(-unknown_2) %>%
+      mutate(timediff = fulltime-measuretime) %>%
+      filter(abs(timediff) < 10) %>%
+      filter(accuracy < 100) %>%
+      mutate(timediff = as.integer(timediff)) %>%
+      select(-measuretime) %>%
+      as.data.table()
+  } else {
+    gps_dt <- gps_data %>%
+      #select(-ltime) %>%
+      distinct() %>%
+      rename(measuretime = rtime) %>%
+      rename(timestamp = ltime) %>%
+      mutate(date = as.Date(timestamp, origin = "1970-01-01", tz = "America/Los_Angeles")) %>%
+      rename(accuracy = unknown_1) %>%
+      rename(fulltime = timestamp) %>%
+      select(-unknown_2) %>%
+      mutate(timediff = fulltime-measuretime) %>%
+      filter(accuracy < 100) %>%
+      mutate(timediff = as.integer(timediff)) %>%
+      select(-measuretime) %>%
+      as.data.table() 
+  }
+
+  ema <- ema_data %>%
+    mutate(ema_prompt_time = prompt_start) %>%
+    as.data.table()
+  ema[, merge_row := .I]
+  print("Successfully loaded EMA")
+  
+  ema_premerge <- ema[ema_prompt_time != "", c("ema_prompt_time","id","merge_row")]
+  ema_premerge[, ema_prompt_time := str_replace(ema_prompt_time," PDT","")]
+  ema_premerge[, ema_prompt_time := str_replace(ema_prompt_time," PST","")]
+  ema_premerge[, ema_time := as.POSIXct(ema_prompt_time, format = "%F %X",tz = "America/Los_Angeles", origin = "1970-01-01")]
+  
+  num_ema <- nrow(ema_premerge)
+  core_count <- detectCores() - 1L
+  registerDoParallel(cores = core_count)
+  
+  
+  lla <- foreach(i=1:num_ema, .combine = rbind, .packages = c("data.table")) %dopar% {
+    temp_ema <- ema_premerge[i]
+    merge_time <- temp_ema[1,ema_time]
+    merge_time_low <- merge_time-60*15
+    merge_time_high <- merge_time+60*15
+    merge_id <- temp_ema[1,id]
+    merge_rownum <- temp_ema[1,merge_row]
+    temp_gps <- gps_dt[id == merge_id & fulltime > merge_time_low & fulltime < merge_time_high]
+    collapsed_gps <- temp_gps[,lapply(.SD, mean, na.rm=TRUE),by = id]
+    
+    if(nrow(collapsed_gps) == 0) {
+      empty_gps <- as.data.table(merge_id)
+      empty_gps[,id := merge_id]
+      empty_gps[,merge_id := NULL]
+      empty_gps[,fulltime := merge_time]
+      empty_gps[,date := as.Date(merge_time, origin = "1970-01-01", tz = "America/Los_Angeles")]
+      empty_gps[,lat := NA_real_]
+      empty_gps[,lon := NA_real_]
+      empty_gps[,accuracy := NA_real_]
+      empty_gps[,timediff := NA_real_]
+      empty_gps[,merge_row := merge_rownum]
+      empty_gps[,merge_rownum := NULL]
+      empty_gps
+    } else{
+      collapsed_gps[, merge_row := merge_rownum]
+      collapsed_gps
+    }
+  }
+  
+  new_gps <- merge(ema,lla,by = "merge_row")
+  new_gps[, id := id.x]
+  new_gps[, date := date.x]
+  new_gps[, id.x := NULL]
+  new_gps[, id.y := NULL]
+  new_gps[, date.x := NULL]
+  new_gps[, date.y := NULL]
+  write_csv(new_gps,paste("/Users/eldin/Downloads","ema_gps.csv", sep = "/"))
+  return(new_gps)
+}
 
 gps_per_day <- function(gps_data = NULL, multicore = TRUE) {
   if(is.null(gps_data)){
@@ -145,7 +260,7 @@ gps_per_day <- function(gps_data = NULL, multicore = TRUE) {
   }
   gps_id_day <- gps %>%
     group_by(file_id,date) %>%
-    summarize(day_lat = mean(latitude), day_long = mean(longitude), day_pts = n()) %>%
+    dplyr::summarize(day_lat = mean(latitude), day_long = mean(longitude), day_pts = n()) %>%
     as.data.table()
   
   gps_ref_temp <- function(gps, gps_id_day, ipos) {

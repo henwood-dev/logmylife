@@ -79,10 +79,10 @@ full_study_adapter <- function() {
                                   v7_v2q_filepath = v7_v2q_filepath)
   
   new_enroll <<- clean_enrollment(enrollment_dirname)
-  new_baseline <<- clean_baseline(baseline_data)
-  tidy_baseline <<- tidy_name_adapter(main_filepath,new_baseline,"bl")
-  new_followup <<- clean_followup(v2q_data)
-  tidy_followup <<- tidy_name_adapter(main_filepath,new_followup,"v2q")
+  new_baseline <<- clean_baseline(baseline_data, main_export_filepath)
+  tidy_baseline <<- tidy_name_adapter(main_filepath,new_baseline,"bl", main_export_filepath)
+  new_followup <<- clean_followup(v2q_data, main_export_filepath)
+  tidy_followup <<- tidy_name_adapter(main_filepath,new_followup,"v2q", main_export_filepath)
   
   
   
@@ -98,6 +98,10 @@ full_study_adapter <- function() {
   housing_geo <<- read_csv("/Users/eldin/University of Southern California/LogMyLife Project - Documents/Data/Geospatial/geocoded_housing.csv")
   gps <<- read_gps(data_dirname, wockets_dirname, manual_dirname, TRUE, TRUE)
   ema_gps <<- tidy_gps(data_dirname, ema, gps, new_enroll, housing_geo)
+  write_dta(ema_gps,paste0(data_dirname,"/ema_gps.dta"))
+  
+  
+  tidy_all <- process_personlevel_data(data_dirname, new_enroll, tidy_baseline, tidy_followup, ema_gps, main_export_filepath)
 }
 
 
@@ -177,7 +181,10 @@ tidy_gps <- function(data_dirname, ema, gps, new_enroll, housing_geo){
   print("Successfully loaded EMA")
   
   gps_dt <- enhance_gps(gps = gps, new_enroll = new_enroll, housing_geo = housing_geo)
+  write_dta(gps_dt,paste(data_dirname,"gps_person_level.dta", sep = "/"))
   gps_dt <- gps_dt[, c(append(names(gps),"athome")), with = FALSE]
+  
+  
   print("Successfully loaded GPS")
   
   ema_premerge <- ema_dt[, c("ema_prompt_time","file_id","merge_row")]
@@ -366,7 +373,7 @@ tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname, enrollment
            sex_exchange_text_where = Q7_sex_exchange_where_other
            ) %>%
     bind_cols(drugs_type_daily(.)) %>%
-    bind_cols(sex_partners_daily(.)) %>%
+    #bind_cols(sex_partners_daily(.)) %>%
     bind_cols(sex_where_daily(.)) %>%
     bind_cols(multiple_sex_partners(.)) %>%
     bind_cols(sleepy_time(., enrollment_dirname = enrollment_dirname)) %>%
@@ -430,7 +437,8 @@ tidy_daily <- function(data_dirname, wockets_dirname, manual_dirname, enrollment
   }
   
   filtered_dailylog <- filtered_dailylog %>%
-    filter(pid != "1115")
+    filter(pid != "1115") %>%
+    mutate(pid = numeric_keep_rename(pid))
   
   
   return(filtered_dailylog)
@@ -464,10 +472,12 @@ tidy_prompts <- function(data_dirname, wockets_dirname, manual_dirname,
            stop_time = as.POSIXct(stop_time, tz = "America/Los_Angeles", format = "%a %b %d %H:%M:%S %Y", origin = "1970-01-01"),
            stop_date = as_date(stop_time)
     ) %>%
+    mutate(pid = numeric_keep_rename(pid)) %>%
     group_by(pid,prompt_date,PromptType) %>%
     summarise_all(funs(first)) %>%
     mutate(timetocomplete = as.integer(stop_time - prompt_time)) %>%
-    rename_all(funs(paste0("prompts_",tolower(.))))
+    rename_all(funs(paste0("prompts_",tolower(.)))) 
+    
     
   
 }
@@ -578,7 +588,8 @@ tidy_ema <- function(data_dirname, wockets_dirname, manual_dirname,
   }
   
   filtered_ema <- filtered_ema %>%
-    filter(pid != "1115")
+    filter(pid != "1115") %>%
+    mutate(pid = numeric_keep_rename(pid))
   
   return(filtered_ema)
 }

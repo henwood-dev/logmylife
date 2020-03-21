@@ -223,6 +223,16 @@ daily_align_sni_alters <- function(filtered_dailylog, new_baseline, other_sni_la
 }
 
 multiple_sex_partners <- function(filtered_dailylog){
+  remove_chars <- function(charstring){
+    removestring <- gsub("/","",charstring)
+    removestring2 <- gsub("<u>","",removestring)
+    removestring3 <- gsub(";","",removestring2)
+    removestring4 <- gsub("&","",removestring3)
+    removestring5 <- gsub("ltugt","",removestring4)
+    removestring6 <- gsub("–","-",removestring5)
+    returnstring <- gsub(", "," - ",removestring6)
+  }
+  
   return_dl <- filtered_dailylog %>%
     select(starts_with("R",ignore.case = FALSE)) %>%
     rename_at(vars(starts_with("R",ignore.case = FALSE)), funs(paste0(substring(.,4),"_p",substring(.,2,2)))) %>%
@@ -230,27 +240,28 @@ multiple_sex_partners <- function(filtered_dailylog){
     rename_at(vars(starts_with("Q5_sex_b_parttype_")), funs(paste0("sex_partner_type_p",substring(.,nchar(.),nchar(.))))) %>%
     rename_at(vars(starts_with("Q5_sex_b2_partdur_")), funs(paste0("sex_partner_duration_p",substring(.,nchar(.),nchar(.))))) %>%
     rename_at(vars(starts_with("Q5_sex_c_identity_")), funs(paste0("sex_partner_gender_p",substring(.,nchar(.),nchar(.))))) %>%
+    mutate_at(vars(starts_with("Q5_sex_d_condom_")), funs(remove_chars(.))) %>%
     rename_at(vars(starts_with("Q5_sex_d_condom_")), funs(paste0("sex_partner_condomuse_p",substring(.,nchar(.),nchar(.))))) %>%
     rename_at(vars(starts_with("Q5_sex_d1_hiv_")), funs(paste0("sex_partner_hiv_p",substring(.,nchar(.),nchar(.))))) %>%
-    rename_at(vars(starts_with("Q5_sex_d1_hiv1_")), funs(paste0("sex_partner_hiv2_p",substring(.,nchar(.),nchar(.))))) %>%
+    #rename_at(vars(starts_with("Q5_sex_d1_hiv1_")), funs(paste0("sex_partner_hiv2_p",substring(.,nchar(.),nchar(.))))) %>%
     rename_at(vars(starts_with("Q5_sex_e_substance_")), funs(paste0("sex_partner_druguse_p",substring(.,nchar(.),nchar(.))))) %>%
     rename_at(vars(starts_with("Q5_sex_f_where_")), funs(paste0("sex_partner_where_p",substring(.,nchar(.),nchar(.))))) %>%
-    rename_at(vars(starts_with("Q5_sex_f_where1_")), funs(paste0("sex_partner_where2_p",substring(.,nchar(.),nchar(.))))) %>%
-    rename_at(vars(starts_with("Q5_sex_g_where_other_")), funs(paste0("sex_partner_where_other_p",substring(.,nchar(.),nchar(.))))) %>%
-    rename_at(vars(starts_with("Q5_sex_g_where_other1_")), funs(paste0("sex_partner_where_other2_p",substring(.,nchar(.),nchar(.))))) %>%
-    mutate(sex_partner_where_p1 = ifelse(is.na(sex_partner_where_p1),sex_partner_where2_p1,sex_partner_where_p1),
-           sex_partner_where_p2 = ifelse(is.na(sex_partner_where_p2),sex_partner_where2_p2,sex_partner_where_p2),
-           sex_partner_where_p3 = ifelse(is.na(sex_partner_where_p3),sex_partner_where2_p3,sex_partner_where_p3),
-           sex_partner_where_p4 = ifelse(is.na(sex_partner_where_p4),sex_partner_where2_p4,sex_partner_where_p4)) %>%
-    mutate(sex_partner_where_other_p1 = ifelse(is.na(sex_partner_where_other_p1),sex_partner_where_other2_p1,sex_partner_where_other_p1),
-           sex_partner_where_other_p2 = ifelse(is.na(sex_partner_where_other_p2),sex_partner_where_other2_p2,sex_partner_where_other_p2),
-           sex_partner_where_other_p3 = ifelse(is.na(sex_partner_where_other_p3),sex_partner_where_other2_p3,sex_partner_where_other_p3),
-           sex_partner_where_other_p4 = ifelse(is.na(sex_partner_where_other_p4),sex_partner_where_other2_p4,sex_partner_where_other_p4)) %>%
-    mutate(sex_partner_where_p1 = ifelse(is.na(sex_partner_where_p1),sex_partner_where2_p1,sex_partner_where_p1),
-           sex_partner_where_p2 = ifelse(is.na(sex_partner_where_p2),sex_partner_where2_p2,sex_partner_where_p2),
-           sex_partner_where_p3 = ifelse(is.na(sex_partner_where_p3),sex_partner_where2_p3,sex_partner_where_p3),
-           sex_partner_where_p4 = ifelse(is.na(sex_partner_where_p4),sex_partner_where2_p4,sex_partner_where_p4)) %>%
-    select(-starts_with("sex_partner_where2"),-starts_with("sex_partner_where_other2"),-starts_with("sex_partner_hiv2"))
+    #rename_at(vars(starts_with("Q5_sex_f_where1_")), funs(paste0("sex_partner_where2_p",substring(.,nchar(.),nchar(.))))) %>%
+    rename_at(vars(starts_with("Q5_sex_g_where_other_")), funs(paste0("sex_partner_where_other_p",substring(.,nchar(.),nchar(.))))) 
+    #rename_at(vars(starts_with("Q5_sex_g_where_other1_")), funs(paste0("sex_partner_where_other2_p",substring(.,nchar(.),nchar(.))))) %>%
+    #mutate(sex_partner_where_p1 = ifelse(is.na(sex_partner_where_p1),sex_partner_where2_p1,sex_partner_where_p1),
+    #       sex_partner_where_p2 = ifelse(is.na(sex_partner_where_p2),sex_partner_where2_p2,sex_partner_where_p2),
+    #       sex_partner_where_p3 = ifelse(is.na(sex_partner_where_p3),sex_partner_where2_p3,sex_partner_where_p3),
+    #       sex_partner_where_p4 = ifelse(is.na(sex_partner_where_p4),sex_partner_where2_p4,sex_partner_where_p4)) %>%
+    # mutate(sex_partner_where_other_p1 = ifelse(is.na(sex_partner_where_other_p1),sex_partner_where_other2_p1,sex_partner_where_other_p1),
+    #        sex_partner_where_other_p2 = ifelse(is.na(sex_partner_where_other_p2),sex_partner_where_other2_p2,sex_partner_where_other_p2),
+    #        sex_partner_where_other_p3 = ifelse(is.na(sex_partner_where_other_p3),sex_partner_where_other2_p3,sex_partner_where_other_p3),
+    #        sex_partner_where_other_p4 = ifelse(is.na(sex_partner_where_other_p4),sex_partner_where_other2_p4,sex_partner_where_other_p4)) %>%
+    # mutate(sex_partner_where_p1 = ifelse(is.na(sex_partner_where_p1),sex_partner_where2_p1,sex_partner_where_p1),
+    #        sex_partner_where_p2 = ifelse(is.na(sex_partner_where_p2),sex_partner_where2_p2,sex_partner_where_p2),
+    #        sex_partner_where_p3 = ifelse(is.na(sex_partner_where_p3),sex_partner_where2_p3,sex_partner_where_p3),
+    #        sex_partner_where_p4 = ifelse(is.na(sex_partner_where_p4),sex_partner_where2_p4,sex_partner_where_p4)) %>%
+    # select(-starts_with("sex_partner_where2"),-starts_with("sex_partner_where_other2"),-starts_with("sex_partner_hiv2"))
   return(return_dl)
 }
 
@@ -418,24 +429,6 @@ sex_partners_daily <- function(filtered_dailylog){
     mutate_at(vars(ends_with("c_identity")),funs(as.character)) %>%
     mutate_at(vars(ends_with("c_identity")),funs(as_factor)) %>%
     rename_at(vars(ends_with("c_identity")),funs(paste0("sex_identity_p",substr(.,2,2)))) %>%
-    mutate_at(vars(ends_with("d_condom")),funs(
-      ifelse(. == "Yes – vaginal without a condom <u>only</u>",
-             "Yes, vaginal without a condom only",.))) %>%
-    mutate_at(vars(ends_with("d_condom")),funs(
-      ifelse(. == "Yes – <u>both</u> anal and vaginal sex without a condom",
-             "Yes, both anal and vaginal sex without a condom",.))) %>%
-    mutate_at(vars(ends_with("d_condom")),funs(
-      ifelse(. == "Yes, vaginal without a condom &lt;u&gt;only&lt;/u&gt;",
-             "Yes, vaginal without a condom only",.))) %>%
-    mutate_at(vars(ends_with("d_condom")),funs(
-      ifelse(. == "Yes, anal without a condom &lt;u&gt;only&lt;/u&gt;",
-             "Yes, anal without a condom only",.))) %>%
-    mutate_at(vars(ends_with("d_condom")),funs(
-      ifelse(. == "Yes, &lt;u&gt;both&lt;/u&gt; anal and vaginal sex without a condom",
-             "Yes, both anal and vaginal sex without a condom",.))) %>%
-    mutate_at(vars(ends_with("d_condom")),funs(
-      ifelse(. == "Yes – anal without a condom <u>only</u>",
-             "Yes, anal without a condom only",.))) %>%
     mutate_at(vars(ends_with("d_condom")),funs(as.character)) %>%
     mutate_at(vars(ends_with("d_condom")),funs(as_factor)) %>%
     rename_at(vars(ends_with("d_condom")),funs(paste0("sex_condom_p",substr(.,2,2)))) %>%
